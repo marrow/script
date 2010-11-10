@@ -7,21 +7,24 @@ Idea stolen patently from the "commandline":http://pypi.python.org/pypi/commandl
 
 If given a generic callable, positional arguments and keyword arguments can be filled in automatically:
 
-<pre><code>def example_function(string1, string2='something', int1=1):
-    """This is just an example. You should really try writing your own software."""
-    print string1, string2, int1</code></pre>
+<pre><code>def dir(path, verbose=False, cool=[]):
+    """Get a directory listing, similar
+    to the UNIX `ls` command."""
+    pass</code></pre>
 
-If the user requests help on this command, they will see:
+If the user requests help on this command (or fails to enter required arguments), they will see:
 
-<pre><code>Usage: script.py string1 [string2 [int1]]
+<pre><code>Get a directory listing, similar to the UNIX `ls` command.
+Usage: command.py [OPTIONS] <path>
 
-Options:
-  -h, --help         show this help message and exit
-  --string2=STRING2  default="something"
-  --int1=INT1        default=1
-  --string1=STRING1  This must be specified as an option or argument.
+OPTIONS may be one or more of:
 
-This is just an example. You should really try writing your own software.</code></pre>
+ --cool=VAL  Override this value.
+             Default: []
+ --help      Display this help and exit.
+ --verbose   Toggle this value.
+             Default: False
+ --version   Show version and copyright information, then exit.</code></pre>
 
 You can also use a class:
 
@@ -47,3 +50,5 @@ COMMAND may be one of:
     foo         Sample command.
 
 For help on a specific command, specify a command and --help or -h.</code></pre>
+
+Any text beyond the first (de-wrapped) line of the docstring will appear below the option list.
