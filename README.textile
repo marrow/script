@@ -1,0 +1,53 @@
+
+
+
+h2. Simple Interface
+
+Idea stolen patently from the "commandline":http://pypi.python.org/pypi/commandline/ module, and extended.
+
+If given a generic callable, positional arguments and keyword arguments can be filled in automatically:
+
+    def example_function(string1, string2='something', int1=1):
+        """This is just an example. You should really try writing your own software."""
+        print string1, string2, int1
+
+If the user requests help on this command, they will see:
+
+    Usage: script.py string1 [string2 [int1]]
+
+    Options:
+      -h, --help         show this help message and exit
+      --string2=STRING2  default="something"
+      --int1=INT1        default=1
+      --string1=STRING1  This must be specified as an option or argument.
+
+    This is just an example. You should really try writing your own software.
+
+You can also use a class:
+
+    class MyCommand(object):
+        """This is just an example."""
+        
+        def __init__(self, verbose=False, quiet=False):
+            pass # called before the sub-command
+        
+        @annotate(string1=str, string2=str, int1=float)
+        @describe(string1="Documentation for string1.")
+        def foo(self, string1, string2='something', int1=1)
+            """Sample command."""
+            pass
+
+Help without a method name will see:
+
+    Usage: script.py [--verbose[=?]] [--quiet[=?]] COMMAND [ARGS]
+    
+    This is just an example.
+    
+    COMMAND may be one of:
+        foo         Sample command.
+    
+    For help on a specific command, specify a command and --help or -h.
+
+
+        
+    
