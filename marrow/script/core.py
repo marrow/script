@@ -6,7 +6,7 @@ import sys
 import types
 import inspect
 
-from marrow.script.util import *
+from marrow.script.util import getargspec, wrap
 from marrow.util.object import NoDefault
 from marrow.util.bunch import Bunch
 from marrow.util.convert import boolean, array
@@ -30,27 +30,31 @@ class Parser(object):
         return self.execute_function(self.callable, argv)
     
     def execute_function(self, fn, argv, top=True):
-        spec = self.spec(fn)
+        spec = self.spec(fn, top)
         args, kwargs, complete = self.process(argv, spec)
         
-        # if top:
-        #     if '--help' in argv or '-h' in argv or not complete:
-        #         return self.help(fn, spec)
-        # 
-        #     if '--version' in argv or '-V' in argv:
-        #         return self.version(fn, arguments, keywords, descriptions, types, args, kwargs)
+        if top:
+            if kwargs.get('version', False):
+                return self.version(fn, spec)
+            
+            if kwargs.get('help', False) or not complete:
+                return self.help(fn, spec)
         
         return fn(*args, **kwargs)
     
     def execute_class(self, cls, argv, top=True):
         pass
     
-    def spec(self, fn):
+    def spec(self, fn, top=True):
         arguments, keywords, args, kwargs = getargspec(fn)
         descriptions = getattr(fn, '_cmd_arg_doc', dict())
         types_ = getattr(fn, '_cmd_arg_types', dict())
         args_range = getattr(fn, '_min_args', len(arguments) - len(keywords)), getattr(fn, '_max_args', len(arguments) - len(keywords))
         short = getattr(fn, '_cmd_arg_types', dict())
+        
+        if top:
+            keywords['help'], types_['help'], short['h'], descriptions['help'] = None, boolean, 'help', "Display this help and exit."
+            keywords['version'], types_['version'], short['V'], descriptions['version'] = None, boolean, 'version', "Show version and copyright information, then exit."
         
         for name, value in keywords.iteritems():
             if name not in types_:
@@ -62,6 +66,12 @@ class Parser(object):
                 
                 elif value is not None:
                     types_[name] = type(value)
+            
+            if name not in short.iteritems():
+                for i in list(name):
+                    if i in short: continue
+                    short[i] = name
+                    break
         
         return Bunch(
                 arguments = arguments,
@@ -73,7 +83,6 @@ class Parser(object):
                 range = args_range,
                 short = short
             )
-    
     
     def process(self, argv, spec):
         """Return usable *args and **kwargs for the given callable spec.
@@ -106,12 +115,18 @@ class Parser(object):
                     if name is None or name in seen: raise ValueError
                     
                     _.append('--' + name)
+                
+                continue
             
             _.append(arg)
         
         argv = _; del _
         
         for arg in argv:
+            if arg == '--':
+                nomore = True
+                continue
+            
             if state:
                 if not nomore and arg.startswith('-'): raise ValueError
                 kwargs[state] = spec.types.get(name, str)(arg)
@@ -155,46 +170,43 @@ class Parser(object):
         
         return args, kwargs, complete
     
-
-"""
-    def partitionhelp(self, s):
-        if s is None: return "", ""
-        
-        head = []
-        tail = []
-        _ = head
-        
-        for line in [i.strip() for i in s.splitlines()]:
-            if not line and _ is head:
-                _ = tail
-                continue
+    def help(self, obj, spec):
+        def partitionhelp(s):
+            if s is None: return "", ""
             
-            _.append(line)
+            head = []
+            tail = []
+            _ = head
+            
+            for line in [i.strip() for i in s.splitlines()]:
+                if not line and _ is head:
+                    _ = tail
+                    continue
+                
+                _.append(line)
+            
+            return head, tail
         
-        return head, tail
-    
-    def help(self, fn, arguments, keywords, docs, types, args, kwargs):
-        doc, doc2 = self.partitionhelp(getattr(fn, '__doc__', None))
+        doc, doc2 = partitionhelp(getattr(obj, '__doc__', None))
         if doc: print wrap(doc)
         
-        print 'Usage:', sys.argv[0], '[OPTIONS]',
+        print 'Usage:', sys.argv[0],
+        if spec.keywords: print '[OPTIONS]',
         
-        for arg in arguments:
-            if arg in keywords: continue
+        for arg in spec.arguments:
+            if arg in spec.keywords: continue
             print '<%s>' % arg,
         
-        keywords = dict(keywords)
-        docs = dict(docs)
-        
-        keywords['help'], types['help'], docs['help'] = None, None, "Display this help and exit."
-        keywords['version'], types['version'], docs['version'] = None, None, "Show version and copyright information, then exit."
+        keywords = dict(spec.keywords)
+        types = dict(spec.types)
+        docs = dict(spec.descriptions)
         
         if keywords:
             print "\n\nOPTIONS may be one or more of:\n"
             help = dict()
             
             for name, default in keywords.iteritems():
-                if types.get(name, None) in [bool, boolean]:
+                if types.get(name, None) is boolean:
                     help["--" + name] = docs.get(name, "Toggle this value.\nDefault: %r" % default)
                     continue
                 
@@ -211,6 +223,19 @@ class Parser(object):
         
         if doc2: print "\n", wrap(doc2)
     
-    def version(self, fn, arguments, keywords, docs, types, args, kwargs):
-        pass
-"""    
+    def version(self, obj, spec):
+        print sys.argv[0],
+        
+        try:
+            print "(" + obj.__title__ + ")",
+        
+        except AttributeError:
+            pass
+        
+        print obj.__version__
+        
+        try:
+            print "\n" + wrap(obj.__copyright__)
+        
+        except AttributeError:
+            pass
