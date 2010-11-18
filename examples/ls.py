@@ -2,10 +2,23 @@
 
 import os
 
-from marrow.script import execute
+from marrow.script import execute, script, describe
 
 
 
+__version__ = '1.0'
+
+
+@script(
+        title = 'ls clone',
+        version = __version__,
+        copyright = "Copyright 2010 Alice Bevan-McGregor\nThis is free software; see the source for copying conditions. There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE."
+    )
+@describe(
+        path = "The directory to display the contents of.",
+        all = "Display hidden nodes.",
+        verbose = "Display modification timestamps in a vertical column."
+    )
 def catalog(path, all=False, verbose=False):
     """Get a directory listing, similar
     to the UNIX `ls` command.
@@ -43,10 +56,6 @@ def catalog(path, all=False, verbose=False):
         if not all and item[0] == '.': continue
         st_mode, st_ino, st_dev, st_nlink, st_uid, st_gid, st_size, st_atime, st_mtime, st_ctime = os.stat(os.path.join(path, item))
         print item, ' ' * (40-len(item)), st_mtime
-
-catalog.__version__ = '1.0'
-catalog.__title__ = 'ls clone'
-catalog.__copyright__ = "Copyright 2010 Alice Bevan-McGregor\nThis is free software; see the source for copying conditions. There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE."
 
 
 if __name__ == '__main__':

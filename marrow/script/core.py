@@ -50,7 +50,7 @@ class Parser(object):
         descriptions = getattr(fn, '_cmd_arg_doc', dict())
         types_ = getattr(fn, '_cmd_arg_types', dict())
         args_range = getattr(fn, '_min_args', len(arguments) - len(keywords)), getattr(fn, '_max_args', len(arguments) - len(keywords))
-        short = getattr(fn, '_cmd_arg_types', dict())
+        short = getattr(fn, '_cmd_shorts', dict())
         
         if top:
             keywords['help'], types_['help'], short['h'], descriptions['help'] = None, boolean, 'help', "Display this help and exit."
@@ -67,7 +67,7 @@ class Parser(object):
                 elif value is not None:
                     types_[name] = type(value)
             
-            if name not in short.iteritems():
+            if name not in short.itervalues():
                 for i in list(name):
                     if i in short: continue
                     short[i] = name
@@ -197,9 +197,13 @@ class Parser(object):
             if arg in spec.keywords: continue
             print '<%s>' % arg,
         
+        if spec.args:
+            print '[...]'
+        
         keywords = dict(spec.keywords)
         types = dict(spec.types)
         docs = dict(spec.descriptions)
+        shorts = dict([(j, i) for i, j in spec.short.iteritems()])
         
         if keywords:
             print "\n\nOPTIONS may be one or more of:\n"
@@ -207,14 +211,14 @@ class Parser(object):
             
             for name, default in keywords.iteritems():
                 if types.get(name, None) is boolean:
-                    help["--" + name] = docs.get(name, "Toggle this value.\nDefault: %r" % default)
+                    help["--" + name + ", -" + shorts[name]] = docs.get(name, "Toggle this value.\nDefault: %r" % default)
                     continue
                 
                 if types.get(name, True) is None:
-                    help["--" + name] = docs.get(name, "Magic option.")
+                    help["--" + name + ", -" + shorts[name]] = docs.get(name, "Magic option.")
                     continue
                 
-                help["--" + name + "=VAL"] = docs.get(name, "Override this value.\nDefault: %r" % default)
+                help["--" + name + "=VAL" + ", -" + shorts[name] + ' VAL'] = docs.get(name, "Override this value.\nDefault: %r" % default)
             
             mlen = max([len(i) for i in help])
             
@@ -227,15 +231,28 @@ class Parser(object):
         print sys.argv[0],
         
         try:
-            print "(" + obj.__title__ + ")",
+            print "(" + obj._cmd_script['title'] + ")",
         
         except AttributeError:
             pass
         
-        print obj.__version__
+        except KeyError:
+            pass
         
         try:
-            print "\n" + wrap(obj.__copyright__)
+            print obj._cmd_script['version']
         
         except AttributeError:
+            pass
+        
+        except KeyError:
+            pass
+        
+        try:
+            print "\n" + wrap(obj._cmd_script['copyright'])
+        
+        except AttributeError:
+            pass
+        
+        except KeyError:
             pass
