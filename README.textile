@@ -34,7 +34,7 @@
         h2 { page-break-before: always; }
         h2 span { font-size: 36pt; font-weight: normal; }
         p, table { margin: 0 0 1em; }
-        pre { margin: 1em 0; margin-left: 2em; padding: 0.5em; border: 1px solid #ccc; background-color: #eee; line-height: 100%; }
+        pre { margin: 1em 0; margin-left: 2em; padding: 0.5em; border: 1px solid #ccc; background-color: #eee; line-height: 100%; font-size: 9pt; }
         blockquote { margin: 1em 0; margin-left: 2em; padding: 0.5em 1em; border-left: 4px solid #ccc; }
         blockquote p { margin: 0; }
         blockquote.subtitle, blockquote.byline { text-align: center; margin: 0; padding: 0; border-left-width: 0; }
@@ -73,7 +73,10 @@ bq(subtitle). Enabling simplified command line script creation.
 
 bq(byline). (C) 2010, Alice Bevan-McGregor
 
-bq(byline). "http://www.web-core.org/marrow/script/":http://www.web-core.org/marrow/script/
+bq(byline). "https://github.com/pulp/marrow.script":github-marrowscript
+
+[github-marrowscript]https://github.com/pulp/marrow.script
+
 
 
 h2(#toc). %i.% Table of Contents
@@ -119,7 +122,6 @@ If you would like to make changes and contribute them back to the project, fork 
 
 
 [github]https://github.com/
-[github-marrowscript]https://github.com/pulp/marrow.script
 [git]http://git-scm.com/
 [github-help]http://help.github.com/
 
@@ -137,6 +139,31 @@ To tell @marrow.script@ to execute this function when run, add the following to 
 <pre><code>if __name__ == '__main__':
     from marrow.script import execute
     execute(hello)</code></pre>
+
+
+h3(#basic-decorator). %3.1.% Script Meta-Data
+
+Included are several decorators which help add metadata to your callable, describing the callable itself or "adding additional detail to the argument list":#decorators.  First an example, then we'll describe its parts in more detail:
+
+<pre><code>from marrow.script import script
+
+@script(
+        title='ls clone',
+        version="1.0",
+        copyright="Copyright 2010 Alice Bevan-McGregor"
+    )
+def catalog():
+    pass</code></pre>
+
+Currently the @script@ decorator accepts the following keyword arguments:
+
+|<. @title@ | Shown in the help and version text in parentheses after the script filename. |
+|<. @version@ | Shown when the script is called with @-V@ or @--version@. |
+|<. @copyright@ | Displayed on its own line after the version information. |
+|<. @min@ | The minimum number of positional arguments, used if the callable accepts @*args@. |
+|<. @max@ | The maximum number of positional arguments, used if the callable accepts @*args@. |
+
+These values are stored in a dictionary attribute, @_cmd_script@, of the callable.  The decorator does not modify code execution flow, merely returning the original callable after adding that property.
 
 
 h3(#help-text). %3.2.% Help and Version Text
@@ -222,6 +249,20 @@ OPTIONS may be one or more of:
  --value=VAL, -v VAL  Override this value.
                       Default: None
  --version, -V        Show version and copyright information, then exit.</code></pre>
+
+h3(#decorators). %4.1.% Descriptive Decorators
+
+Marrow Script comes with a number of decorators which expand upon the knowledge that can be gained via introspection.  These are:
+
+|<. @annotate@ | Explicitly defines the typecasting for each argument.[1][2] |
+|<. @describe@ | Overrides the default help text for each argument.[2] |
+|<. @short@ | Defines a mapping of single-character to full variable name. |
+
+fn1. Typecasting is performed by any callable that accepts a string value as input; the built-in types @str@, @unicode@, @int@, etc. all support this.  Additionally, to facilitate easier conversion of booleans and lists you can use "marrow.util":marrowutil conversion routines like @boolean@ and @array@.
+
+fn2. Arguments to these decorators are @name=value@ pairs whereby the name is the name of the argument to your callable.
+
+[marrowutil]https://github.com/pulp/marrow.util
 
 
 h2(#advanced). %5.% Advanced Usage
