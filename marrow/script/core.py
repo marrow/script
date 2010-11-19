@@ -40,6 +40,8 @@ class Parser(object):
             if kwargs.get('help', False) or not complete:
                 return self.help(fn, spec)
         
+        del kwargs['help'], kwargs['version']
+        
         return fn(*args, **kwargs)
     
     def execute_class(self, cls, argv, top=True):
@@ -193,12 +195,14 @@ class Parser(object):
         print 'Usage:', sys.argv[0],
         if spec.keywords: print '[OPTIONS]',
         
+        if spec.kwargs: print '[--name=value...]',
+        
         for arg in spec.arguments:
             if arg in spec.keywords: continue
             print '<%s>' % arg,
         
         if spec.args:
-            print '[...]'
+            print '[value...]'
         
         keywords = dict(spec.keywords)
         types = dict(spec.types)
