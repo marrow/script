@@ -1,54 +1,246 @@
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script>
+<script type="text/javascript">$(function(){
+    var first = $('h2:eq(1)');
+    if (!first) return;
+    
+    first.before('<ol id="contents"></ol>') 
+    var outer = $('ol#contents');
+    
+    $('h2:gt(0), h3, h4').map(function(i) {
+        var header = $(this);
+        
+        if ( header.attr('id') === undefined )
+            header.attr('id', 'tmp.' + (i + 1));
+        
+        var text = header.clone();
+        text.find('span:first').remove();
+        text = text.text();
+        
+        var link = '<a href="#' + header.attr('id') + '">' + text + '</a>';
+        var item = '<li class="' + this.tagName + '">' + link;
+        if (typeof previous == 'undefined') outer.append(item);
+        else if (this.tagName > previous) $('li:last', outer).append('<ol>' + item + '</ol>');
+        else if (this.tagName < previous) $('ol:last', outer).parent().after(item);
+        else $('li:last', outer).after(item);
+        previous = this.tagName;
+    })
+});</script>
+<style>
+    @media all {
+        body { font-size: 12pt; }
+        
+        h1, h2, h3, h4 { font-family: Trebuchet MS; }
+        h1 { font-size: 36pt; text-align: center; margin: 12pt; }
+        h2 { page-break-before: always; }
+        h2 span { font-size: 36pt; font-weight: normal; }
+        p, table { margin: 0 0 1em; }
+        pre { margin: 1em 0; margin-left: 2em; padding: 0.5em; border: 1px solid #ccc; background-color: #eee; line-height: 100%; }
+        blockquote { margin: 1em 0; margin-left: 2em; padding: 0.5em 1em; border-left: 4px solid #ccc; }
+        blockquote p { margin: 0; }
+        blockquote.subtitle, blockquote.byline { text-align: center; margin: 0; padding: 0; border-left-width: 0; }
+        blockquote.subtitle { font-style: italic; font-size: 16pt; margin-bottom: 14pt; }
+        blockquote.byline { font-size: 10pt; margin-top: 6pt; }
+        
+        ol li { margin-bottom: 0.5em !important; }
+        ol ol { margin-top: 0.5em; }
+    }
+    
+    @media print {
+        html { margin: 0; padding: 0; }
+        body { margin: 0; padding: 0; }
+        h1 { margin-top: 3in; }
+        h2 { padding-top: 0.5in; }
+        blockquote.subtitle { margin-bottom: 4in; }
+    }
+    
+    @page {
+        margin: 1in 0.5in;
+    }
+    
+    @page :left {
+        margin-right: 1in;
+    }
+    
+    @page :right {
+        margin-left: 1in;
+    }
+</style>
+
+
+h1(#title). Marrow Scripting
+
+bq(subtitle). Enabling simplified command line script creation.
+
+bq(byline). (C) 2010, Alice Bevan-McGregor
+
+bq(byline). "http://www.web-core.org/marrow/script/":http://www.web-core.org/marrow/script/
+
+
+h2(#toc). %i.% Table of Contents
 
 
 
-h2. Simple Interface
+h2(#what-is). %1.% What is Marrow Scripting?
 
-Idea stolen patently from the "commandline":http://pypi.python.org/pypi/commandline/ module, and extended.
+The @marrow.script@ package is a small library for turning average every-day callables (such as functions and class methods) into command-line scripts while automatically determining argument naming, typecasting, and generating things like help and version information.  All behavior can be overridden by you, the developer, giving you a flexible and easy to develop with command line parsing library to replace @optparse@ and @argparse@.  This package is not a wrapper around existing parsing libraries, and attempts to match the syntax common to GNU software.
 
-If given a generic callable, positional arguments and keyword arguments can be filled in automatically:
+In a larger scope @marrow.script@ aims to replace other high-level command-line scripting libraries such as "Paste Script":pastescript and "Commandline":commandline while also implementing "Python 3":python compatibility.
 
-<pre><code>def dir(path, verbose=False, cool=[]):
-    """Get a directory listing, similar
-    to the UNIX `ls` command."""
-    pass</code></pre>
 
-If the user requests help on this command (or fails to enter required arguments), they will see:
+[pastescript]http://pythonpaste.org/script/
+[commandline]http://pypi.python.org/pypi/commandline/
+[python]http://www.python.org/
 
-<pre><code>Get a directory listing, similar to the UNIX `ls` command.
-Usage: command.py [OPTIONS] <path>
+
+
+h2(#installation). %2.% Installation
+
+Installing @marrow.script@ is easy, just execute the following in a terminal:
+
+<pre><code>pip install marrow.script</code></pre>
+
+If you add @marrow.script@ to the @install_requires@ argument of the call to @setup()@ in your application's @setup.py@ file, @marrow.script@ will be automatically installed and made available when your own application is installed.
+
+
+h3(#install-dev). %2.1.% Development Version
+
+Development takes place on "GitHub":github in the "marrow.script":github-marrowscript project.  Issue tracking, documentation, and downloads are provided there.
+
+Installing the current development version requires "Git":git, a distributes source code management system.  If you have Git, you can run the following to download and _link_ the development version into your Python runtime:
+
+<pre><code>git clone https://github.com/pulp/marrow.script.git
+(cd marrow.script; python setup.py develop)</code></pre>
+
+You can upgrade to the latest version at any time:
+
+<pre><code>(cd marrow.script; git pull; python setup.py develop)</code></pre>
+
+If you would like to make changes and contribute them back to the project, fork the GitHub project, make your changes, and submit a pull request.  This process is beyond the scope of this documentation; for more information, see "GitHub's documentation":github-help.
+
+
+[github]https://github.com/
+[github-marrowscript]https://github.com/pulp/marrow.script
+[git]http://git-scm.com/
+[github-help]http://help.github.com/
+
+
+
+h2(#basic). %3.% Basic Usage
+
+You can pass any callable object (function, method, class, or class instance with a @__call__@ method).  For example, the following function illustrates a script that takes no arguments:
+
+<pre><code>def hello():
+    print "Hello world!"</code></pre>
+
+To tell @marrow.script@ to execute this function when run, add the following to the module containing the @hello@ function:
+
+<pre><code>if __name__ == '__main__':
+    from marrow.script import execute
+    execute(hello)</code></pre>
+
+
+h3(#help-text). %3.2.% Help and Version Text
+
+Marrow Script automatically generates help text for your callable based on the Python module's name, the callable's docstring (if present), and argument list.  It automatically adds a @--help/-h@ switch and handles its presence in the command line automatically.  Additionally, if the command line fails to describe the required fields (or describes fields that the callable can't handle) the help text is displayed.  The help text for our @hello@ example, above, would be displayed thusly:
+
+<pre><code>Usage: hello.py [OPTIONS] 
 
 OPTIONS may be one or more of:
 
- --cool=VAL  Override this value.
-             Default: []
- --help      Display this help and exit.
- --verbose   Toggle this value.
-             Default: False
- --version   Show version and copyright information, then exit.</code></pre>
+ --help, -h     Display this help and exit.
+ --version, -V  Show version and copyright information, then exit.</code></pre>
 
-You can also use a class:
+You can override the help text generator (which must be a callable accepting two arguments: the callable and callable specification) by utilizing the Parser class directly:
 
-<pre><code>class MyCommand(object):
-    """This is just an example."""
+<pre id="custom-parser-example"><code>import sys
+from marrow.script import Parser
+
+def hello():
+    print "Hello world!"
+
+def myhelpfunc(obj, spec):
+    print "Custom help text."
+
+sys.exit(Parser(hello, help=myhelpfunc)(sys.argv[1:]))</code></pre>
+
+Executing this script with @-h@ or @--help@ will display:
+
+<pre><code>Custom help text.</code></pre>
+
+Similarly, you can override the version text generator by passing @version=callable@ to the Parser class.  The version text callable has the same argument list as the help text callable.
+
+
+h3(#status-codes). %3.3.% Exit Status Codes
+
+The value returned by the callable should be None (exit code of zero) or a number.  This number is passed through to @sys.exit()@.  An example of capturing errors gracefully:
+
+<pre><code>def graceful():
+    try:
+        pass # do some work
     
-    def __init__(self, verbose=False, quiet=False):
-        pass # called before the sub-command
-    
-    @annotate(string1=str, string2=str, int1=float)
-    @describe(string1="Documentation for string1.")
-    def foo(self, string1, string2='something', int1=1)
-        """Sample command."""
-        pass</code></pre>
+    except:
+        return 1</code></pre>
 
-Help without a method name will see:
 
-<pre><code>Usage: script.py [--verbose[=?]] [--quiet[=?]] COMMAND [ARGS]
-    
-This is just an example.
+h3(#basic-testing). %3.4.% Testing
 
-COMMAND may be one of:
-    foo         Sample command.
+By utilizing the Parser class directly, as in the "custom parser example":#custom-parser-example above, you can pass a custom list of arguments and capture the return code.  This can aid in unit testing of your code, for example:
 
-For help on a specific command, specify a command and --help or -h.</code></pre>
+<pre><code>from marrow.script import Parser
 
-Any text beyond the first (de-wrapped) line of the docstring will appear below the option list.
+def hello():
+    print "Hello world!"
+
+assert Parser(hello)([]) == 0 # Ensure the return code is zero.</code></pre>
+
+
+h2(#arguments). %4.% Argument Handling
+
+Marrow Script introspects your callable to determine the argument list.  Not only does it examine the names of the arguments, but it also understands the following in the argument list:
+
+|<. @required@ | Required positional arguments. |
+|<. @value=None@ |/2^. Explicit values, these are converted to strings. |
+|<. @name="world"@ |
+|<. @switch=False@ | Explicit boolean switches. If matched on the command-line, the switch is flipped to its opposite value. |
+|<. @age=18@ | Explicit numeric values are converted to numbers automatically. |
+|<. @*args@ | Unlimited positional arguments. |
+|<. @**kwargs@ | A rare use-case, your callable can accept an unlimited number of name=value pairs from the command line. |
+
+Help text from a method using all of the above appears like this:
+
+<pre><code>Usage: ultima.py [OPTIONS] [--name=value...] <required> [value...]
+
+OPTIONS may be one or more of:
+
+ --age=VAL, -a VAL    Override this value.
+                      Default: 18
+ --help, -h           Display this help and exit.
+ --name=VAL, -n VAL   Override this value.
+                      Default: 'world'
+ --switch, -s         Toggle this value.
+                      Default: False
+ --value=VAL, -v VAL  Override this value.
+                      Default: None
+ --version, -V        Show version and copyright information, then exit.</code></pre>
+
+
+h2(#advanced). %5.% Advanced Usage
+
+Documentation on advanced (class-based) usage will be completed during the 1.1 release cycle, when the feature is implemented.
+
+
+
+h2(#license). %6.% Marrow Script License
+
+Marrow Script has been released under the MIT Open Source license.
+
+
+h3. %6.1.% The MIT License
+
+Copyright (C) 2010 Alice Bevan-McGregor and contributors.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
