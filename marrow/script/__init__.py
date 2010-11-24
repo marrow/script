@@ -2,7 +2,7 @@
 
 import sys
 
-from core import Parser
+from marrow.script.core import Parser
 
 
 __all__ = ['Parser', 'execute', 'script', 'annotate', 'describe', 'short']
