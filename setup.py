@@ -13,10 +13,23 @@ except ImportError:
 from setuptools import setup, find_packages
 
 
-if sys.version_info <= (2, 5):
-    raise SystemExit("Python 2.5 or later is required.")
+if sys.version_info <= (2, 6):
+    raise SystemExit("Python 2.6 or later is required.")
 
-execfile(os.path.join("marrow", "script", "release.py"))
+if sys.version_info >= (3,0):
+    def execfile(filename, globals_=None, locals_=None):
+        if globals_ is None:
+            globals_ = globals()
+        
+        if locals_ is None:
+            locals_ = globals_
+        
+        exec(compile(open(filename).read(), filename, 'exec'), globals_, locals_)
+
+else:
+    from __builtin__ import execfile
+
+execfile(os.path.join("marrow", "script", "release.py"), globals(), locals())
 
 
 
