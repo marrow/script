@@ -4,8 +4,8 @@
 
 
 name = "marrow.script"
-version = "0.9"
-release = "0.9"
+version = "1.0"
+release = "1.0"
 
 summary = "Turn any callable into a powerful command line script through arglist introspection."
 description = """The ``marrow.script`` package is a small library for turning average every-day callables (such as functions and class methods) into command-line scripts while automatically determining argument naming, typecasting, and generating things like help and version information.  All behavior can be overridden by you, the developer, giving you a flexible and easy to develop with command line parsing library to replace ``optparse`` and ``argparse``.  This package is not a wrapper around existing parsing libraries, and attempts to match the syntax common to GNU software.
