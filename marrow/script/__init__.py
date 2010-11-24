@@ -9,7 +9,7 @@ __all__ = ['Parser', 'execute', 'script', 'annotate', 'describe', 'short']
 
 
 
-def execute(obj):
+def execute(obj): # pragma: no cover
     sys.exit(Parser(obj)(sys.argv[1:]))
 
 

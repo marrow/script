@@ -50,7 +50,7 @@ class InspectionFailed(Exception):
     pass
 
 
-def getargspec(obj, nested=False):
+def getargspec(obj):
     """An improved inspect.getargspec.
     
     Has a slightly different return value from the default getargspec.
@@ -69,26 +69,25 @@ def getargspec(obj, nested=False):
     
     argnames, varargs, varkw, defaults = None, None, None, None
     
-    try:
-        if inspect.isfunction(obj):
-            raise InspectionComplete(*inspect.getargspec(obj))
-        
-        if hasattr(obj, 'im_func'):
-            spec = list(inspect.getargspec(obj.im_func))
-            spec[0] = spec[0][1:]
-            raise InspectionComplete(*spec)
-        
-        if inspect.isclass(obj):
-            raise InspectionComplete(*getargspec(obj.__init__, True))
-        
-        if hasattr(obj, '__call__'):
-            raise InspectionComplete(*getargspec(obj.__call__, True))
-        
-        raise InspectionFailed()
+    if inspect.isfunction(obj) or inspect.ismethod(obj):
+        argnames, varargs, varkw, _defaults = inspect.getargspec(obj)
     
-    except InspectionComplete, exc:
-        argnames, varargs, varkw, _defaults = exc.args
-        if nested: return argnames, varargs, varkw, _defaults
+    elif inspect.isclass(obj):
+        if inspect.ismethoddescriptor(obj.__init__):
+            argnames, varargs, varkw, _defaults = [], False, False, None
+        
+        else:
+            argnames, varargs, varkw, _defaults = inspect.getargspec(obj.__init__)
+    
+    elif hasattr(obj, '__call__'):
+        argnames, varargs, varkw, _defaults = inspect.getargspec(obj.__call__)
+    
+    # Need test case to prove this is even possible.
+    # if (argnames, varargs, varkw, defaults) is (None, None, None, None):
+    #     raise InspectionFailed()
+    
+    if argnames and argnames[0] == 'self':
+        del argnames[0]
     
     if _defaults is None:
         _defaults = []

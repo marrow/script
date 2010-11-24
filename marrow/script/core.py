@@ -2,14 +2,16 @@
 
 from __future__ import with_statement
 
+import os
 import sys
 import types
 import inspect
+import logging
 
-from marrow.script.util import getargspec, wrap
 from marrow.util.object import NoDefault
 from marrow.util.bunch import Bunch
 from marrow.util.convert import boolean, array
+from marrow.script.util import getargspec, wrap
 
 
 
@@ -23,9 +25,12 @@ class Parser(object):
         if version is not NoDefault:
             self.version = version
     
-    def __call__(self, argv):
+    def __call__(self, argv=None):
+        if argv is None: argv = []
+        
         if inspect.isclass(self.callable):
-            return self.execute_class(self.callable, argv)
+            raise NotImplementedError
+            # return self.execute_class(self.callable, argv)
         
         return self.execute_function(self.callable, argv)
     
@@ -44,7 +49,7 @@ class Parser(object):
         
         return fn(*args, **kwargs)
     
-    def execute_class(self, cls, argv, top=True):
+    def execute_class(self, cls, argv, top=True): # pragma: no cover
         pass
     
     def spec(self, fn, top=True):
@@ -100,6 +105,8 @@ class Parser(object):
         state = None # stores "current" argument if using --name value (vs. --name=value)
         nomore = False # If we encounter -- (without a name), stop processing dash-prefixed elements.
         
+        logging.debug("argv=%r", argv)
+        
         # Pre-process the arglist, expanding short-form names into long ones.
         _ = []
         for arg in argv:
@@ -112,9 +119,9 @@ class Parser(object):
                     _.append(arg)
                     continue
                 
-                for part in list(arg[1:]):
+                for part in list(arg[1:]): # TODO: Give positional arguments short names.
                     name = spec.short.get(part, None)
-                    if name is None or name in seen: raise ValueError
+                    if name in seen: raise ValueError
                     
                     _.append('--' + name)
                 
@@ -124,6 +131,8 @@ class Parser(object):
         
         argv = _; del _
         
+        logging.debug("argv=%r", argv)
+        
         for arg in argv:
             if arg == '--':
                 nomore = True
@@ -131,13 +140,16 @@ class Parser(object):
             
             if state:
                 if not nomore and arg.startswith('-'): raise ValueError
-                kwargs[state] = spec.types.get(name, str)(arg)
+                kwargs[state] = spec.types.get(state, str)(arg)
                 state = None
                 continue
             
             if not nomore and arg.startswith('--'):
                 name, _, value = arg[2:].partition('=')
-                if name in seen: raise ValueError
+                
+                if name in seen:
+                    return [], {}, False
+                
                 seen[name] = True
                 
                 if not value and spec.types.get(name, None) is boolean:
@@ -149,25 +161,34 @@ class Parser(object):
                     state = name
                     continue
                 
-                kwargs[name] = spec.types.get(name, str)(value)
+                try:
+                    kwargs[name] = spec.types.get(name, str)(value)
+                
+                except:
+                    return [], {}, False
+                
                 continue
             
             if arguments:
-                name = None
+                name = arguments.pop(0)
                 
-                while name in seen:
-                    # Gracefully handle arguments already explicitly defined by name.
-                    # TODO: This -might- be a bad idea; needs testing.  Commented section below is the other option.
-                    name = arguments.pop()
-                
-                # if name in seen: raise ValueError
+                if name in seen or name in kwargs:
+                    return [], {}, False
                 
                 seen[name] = True
-                kwargs[name] = spec.types.get(name, str)(arg)
+                
+                try:
+                    kwargs[name] = spec.types.get(name, str)(arg)
+                
+                except:
+                    return [], {}, False
+                
                 continue
             
-            remaining.append(arg)
+            logging.debug("seen=%r arguments=%r, args=%r/%r/%r, kwargs=%r", seen, arguments, args, len(args), list(args), kwargs)
+            args.append(arg)
         
+        logging.debug("seen=%r arguments=%r, args=%r, kwargs=%r", seen, arguments, args, kwargs)
         complete = len([i for i in kwargs if i in spec.arguments]) == len(spec.arguments)
         
         return args, kwargs, complete
@@ -230,6 +251,8 @@ class Parser(object):
                 print " %-*s  %s" % (mlen, name, wrap(help[name]).replace("\n", "\n" + " " * (mlen + 3)))
         
         if doc2: print "\n", wrap(doc2)
+        
+        return os.EX_USAGE
     
     def version(self, obj, spec):
         print sys.argv[0],
@@ -260,3 +283,6 @@ class Parser(object):
         
         except KeyError:
             pass
+        
+        return os.EX_USAGE
+    
