@@ -46,6 +46,7 @@ setup(
         license = license,
         keywords = '',
         
+        use_2to3 = True,
         install_requires = ['marrow.util'],
         
         test_suite = 'nose.collector',
@@ -55,14 +56,19 @@ setup(
             ],
         
         classifiers = [
-                "Development Status :: 1 - Planning",
+                "Development Status :: 5 - Production/Stable",
                 "Environment :: Console",
                 "Intended Audience :: Developers",
                 "License :: OSI Approved :: MIT License",
                 "Operating System :: OS Independent",
                 "Programming Language :: Python",
-                "Topic :: Internet :: WWW/HTTP :: WSGI",
-                "Topic :: Software Development :: Libraries :: Python Modules"
+                "Programming Language :: Python :: 2.6",
+                "Programming Language :: Python :: 2.7",
+                "Programming Language :: Python :: 3",
+                "Programming Language :: Python :: 3.1",
+                "Programming Language :: Python :: 3.2",
+                "Topic :: Software Development :: Libraries :: Python Modules",
+                "Topic :: Utilities"
             ],
         
         packages = find_packages(exclude=['examples', 'tests', 'tests.*', 'docs', 'third-party']),
