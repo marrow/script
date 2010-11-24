@@ -1,72 +1,3 @@
-<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"></script>
-<script type="text/javascript">$(function(){
-    var first = $('h2:eq(1)');
-    if (!first) return;
-    
-    first.before('<ol id="contents"></ol>') 
-    var outer = $('ol#contents');
-    
-    $('h2:gt(0), h3, h4').map(function(i) {
-        var header = $(this);
-        
-        if ( header.attr('id') === undefined )
-            header.attr('id', 'tmp.' + (i + 1));
-        
-        var text = header.clone();
-        text.find('span:first').remove();
-        text = text.text();
-        
-        var link = '<a href="#' + header.attr('id') + '">' + text + '</a>';
-        var item = '<li class="' + this.tagName + '">' + link;
-        if (typeof previous == 'undefined') outer.append(item);
-        else if (this.tagName > previous) $('li:last', outer).append('<ol>' + item + '</ol>');
-        else if (this.tagName < previous) $('ol:last', outer).parent().after(item);
-        else $('li:last', outer).after(item);
-        previous = this.tagName;
-    })
-});</script>
-<style>
-    @media all {
-        body { font-size: 12pt; }
-        
-        h1, h2, h3, h4 { font-family: Trebuchet MS; }
-        h1 { font-size: 36pt; text-align: center; margin: 12pt; }
-        h2 { page-break-before: always; }
-        h2 span { font-size: 36pt; font-weight: normal; }
-        p, table { margin: 0 0 1em; }
-        pre { margin: 1em 0; margin-left: 2em; padding: 0.5em; border: 1px solid #ccc; background-color: #eee; line-height: 100%; font-size: 9pt; }
-        blockquote { margin: 1em 0; margin-left: 2em; padding: 0.5em 1em; border-left: 4px solid #ccc; }
-        blockquote p { margin: 0; }
-        blockquote.subtitle, blockquote.byline { text-align: center; margin: 0; padding: 0; border-left-width: 0; }
-        blockquote.subtitle { font-style: italic; font-size: 16pt; margin-bottom: 14pt; }
-        blockquote.byline { font-size: 10pt; margin-top: 6pt; }
-        
-        ol li { margin-bottom: 0.5em !important; }
-        ol ol { margin-top: 0.5em; }
-    }
-    
-    @media print {
-        html { margin: 0; padding: 0; }
-        body { margin: 0; padding: 0; }
-        h1 { margin-top: 3in; }
-        h2 { padding-top: 0.5in; }
-        blockquote.subtitle { margin-bottom: 4in; }
-    }
-    
-    @page {
-        margin: 1in 0.5in;
-    }
-    
-    @page :left {
-        margin-right: 1in;
-    }
-    
-    @page :right {
-        margin-left: 1in;
-    }
-</style>
-
-
 h1(#title). Marrow Scripting
 
 bq(subtitle). Enabling simplified command line script creation.
@@ -76,10 +7,6 @@ bq(byline). (C) 2010, Alice Bevan-McGregor
 bq(byline). "https://github.com/pulp/marrow.script":github-marrowscript
 
 [github-marrowscript]https://github.com/pulp/marrow.script
-
-
-
-h2(#toc). %i.% Table of Contents
 
 
 
@@ -225,13 +152,14 @@ h2(#arguments). %4.% Argument Handling
 
 Marrow Script introspects your callable to determine the argument list.  Not only does it examine the names of the arguments, but it also understands the following in the argument list:
 
-|<. @required@ | Required positional arguments. |
-|<. @value=None@ |/2^. Explicit values, these are converted to strings. |
-|<. @name="world"@ |
-|<. @switch=False@ | Explicit boolean switches. If matched on the command-line, the switch is flipped to its opposite value. |
-|<. @age=18@ | Explicit numeric values are converted to numbers automatically. |
-|<. @*args@ | Unlimited positional arguments. |
-|<. @**kwargs@ | A rare use-case, your callable can accept an unlimited number of name=value pairs from the command line. |
+|^<. @required@ |^. Required positional arguments. |
+|^<. @value=None@ |/2^. Explicit values, these are converted to strings. |
+|^<. @name="world"@ |
+|^<. @switch=False@ |^. Explicit boolean switches. If matched on the command-line, the switch is flipped to its opposite value. |
+|^<. @age=18@ |^. Explicit numeric values are converted to numbers automatically. |
+|^<. @callback=callable@ |^. If the default is callable when the switch/argument is encountered it is called and its return value passed to your script.[1] |
+|^<. @*args@ |^. Unlimited positional arguments. |
+|^<. @**kwargs@ |^. A rare use-case, your callable can accept an unlimited number of name=value pairs from the command line. |
 
 Help text from a method using all of the above appears like this:
 
@@ -250,17 +178,21 @@ OPTIONS may be one or more of:
                       Default: None
  --version, -V        Show version and copyright information, then exit.</code></pre>
 
+
+fn1. The callback may take no arguments or one argument. It is inspected to determine if the command-line argument is a switch or a name-value pair.
+
+
 h3(#decorators). %4.1.% Descriptive Decorators
 
 Marrow Script comes with a number of decorators which expand upon the knowledge that can be gained via introspection.  These are:
 
-|<. @annotate@ | Explicitly defines the typecasting for each argument.[1][2] |
-|<. @describe@ | Overrides the default help text for each argument.[2] |
+|<. @annotate@ | Explicitly defines the typecasting for each argument.[2][3] |
+|<. @describe@ | Overrides the default help text for each argument.[3] |
 |<. @short@ | Defines a mapping of single-character to full variable name. |
 
-fn1. Typecasting is performed by any callable that accepts a string value as input; the built-in types @str@, @unicode@, @int@, etc. all support this.  Additionally, to facilitate easier conversion of booleans and lists you can use "marrow.util":marrowutil conversion routines like @boolean@ and @array@.
+fn2. Typecasting is performed by any callable that accepts a string value as input; the built-in types @str@, @unicode@, @int@, etc. all support this.  Additionally, to facilitate easier conversion of booleans and lists you can use "marrow.util":marrowutil conversion routines like @boolean@ and @array@.
 
-fn2. Arguments to these decorators are @name=value@ pairs whereby the name is the name of the argument to your callable.
+fn3. Arguments to these decorators are @name=value@ pairs whereby the name is the name of the argument to your callable.
 
 [marrowutil]https://github.com/pulp/marrow.util
 
