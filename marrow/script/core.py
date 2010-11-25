@@ -1,6 +1,6 @@
 # encoding: utf-8
 
-from __future__ import with_statement
+from __future__ import print_function
 
 import os
 import sys
@@ -211,19 +211,21 @@ class Parser(object):
             return head, tail
         
         doc, doc2 = partitionhelp(getattr(obj, '__doc__', None))
-        if doc: print wrap(doc)
         
-        print 'Usage:', sys.argv[0],
-        if spec.keywords: print '[OPTIONS]',
+        if doc:
+            print(wrap(doc))
         
-        if spec.kwargs: print '[--name=value...]',
+        print('Usage:', sys.argv[0], end='')
+        if spec.keywords: print('[OPTIONS]', end='')
+        
+        if spec.kwargs: print('[--name=value...]', end='')
         
         for arg in spec.arguments:
             if arg in spec.keywords: continue
-            print '<%s>' % arg,
+            print('<%s>' % arg, end='')
         
         if spec.args:
-            print '[value...]'
+            print('[value...]')
         
         keywords = dict(spec.keywords)
         types = dict(spec.types)
@@ -231,7 +233,7 @@ class Parser(object):
         shorts = dict([(j, i) for i, j in spec.short.iteritems()])
         
         if keywords:
-            print "\n\nOPTIONS may be one or more of:\n"
+            print("\n\nOPTIONS may be one or more of:\n")
             help = dict()
             
             for name, default in keywords.iteritems():
@@ -248,17 +250,17 @@ class Parser(object):
             mlen = max([len(i) for i in help])
             
             for name in sorted(help):
-                print " %-*s  %s" % (mlen, name, wrap(help[name]).replace("\n", "\n" + " " * (mlen + 3)))
+                print(" %-*s  %s" % (mlen, name, wrap(help[name]).replace("\n", "\n" + " " * (mlen + 3))))
         
-        if doc2: print "\n", wrap(doc2)
+        if doc2: print("\n", wrap(doc2))
         
         return os.EX_USAGE
     
     def version(self, obj, spec):
-        print sys.argv[0],
+        print(sys.argv[0], end='')
         
         try:
-            print "(" + obj._cmd_script['title'] + ")",
+            print("(" + obj._cmd_script['title'] + ")", end='')
         
         except AttributeError:
             pass
@@ -267,7 +269,7 @@ class Parser(object):
             pass
         
         try:
-            print obj._cmd_script['version']
+            print(obj._cmd_script['version'])
         
         except AttributeError:
             pass
@@ -276,7 +278,7 @@ class Parser(object):
             pass
         
         try:
-            print "\n" + wrap(obj._cmd_script['copyright'])
+            print("\n" + wrap(obj._cmd_script['copyright']))
         
         except AttributeError:
             pass
