@@ -66,7 +66,7 @@ def getargspec(obj):
     """
     
     if not isinstance(obj, collections.Callable):
-        raise TypeError, "%s is not callable" % type(obj)
+        raise TypeError(type(obj) + " is not callable")
     
     argnames, varargs, varkw, defaults = None, None, None, None
     
