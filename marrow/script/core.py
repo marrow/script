@@ -63,7 +63,8 @@ class Parser(object):
             keywords['help'], types_['help'], short['h'], descriptions['help'] = None, boolean, 'help', "Display this help and exit."
             keywords['version'], types_['version'], short['V'], descriptions['version'] = None, boolean, 'version', "Show version and copyright information, then exit."
         
-        for name, value in keywords.iteritems():
+        for name in keywords:
+            value = keywords[name]
             if name not in types_:
                 if isinstance(value, bool):
                     types_[name] = boolean
@@ -230,13 +231,14 @@ class Parser(object):
         keywords = dict(spec.keywords)
         types = dict(spec.types)
         docs = dict(spec.descriptions)
-        shorts = dict([(j, i) for i, j in spec.short.iteritems()])
+        shorts = dict([(spec.short[i], i) for i in spec.short])
         
         if keywords:
             print("\n\nOPTIONS may be one or more of:\n")
             help = dict()
             
-            for name, default in keywords.iteritems():
+            for name in keywords:
+                default = keywords[name]
                 if types.get(name, None) is boolean:
                     help["--" + name + ", -" + shorts[name]] = docs.get(name, "Toggle this value.\nDefault: %r" % default)
                     continue
