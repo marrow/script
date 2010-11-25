@@ -1,10 +1,13 @@
 # encoding: utf-8
 
+from __future__ import print_function
+
+
 def hello():
-    print "Hello world!"
+    print("Hello world!")
 
 def myhelpfunc(obj, spec):
-    print "Custom help text."
+    print("Custom help text.")
 
 
 if __name__ == '__main__':

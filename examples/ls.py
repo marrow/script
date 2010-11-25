@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+from __future__ import print_function
+
 import os
 
 from marrow.script import execute, script, describe
@@ -48,15 +50,15 @@ def catalog(path, all=False, verbose=False):
         for item in listing:
             if not all and item[0] == '.': continue
             
-            print item, '\t',
+            print(item, '\t', end='')
         
-        print "\n\nItems in folder: %d" % (len(listing))
+        print("\n\nItems in folder: %d" % (len(listing)))
         return 0
     
     for item in listing:
         if not all and item[0] == '.': continue
         st_mode, st_ino, st_dev, st_nlink, st_uid, st_gid, st_size, st_atime, st_mtime, st_ctime = os.stat(os.path.join(path, item))
-        print item, ' ' * (40-len(item)), st_mtime
+        print(item, ' ' * (40-len(item)), st_mtime)
 
 
 if __name__ == '__main__':

@@ -3,7 +3,6 @@
 import sys
 import types
 import inspect
-import collections
 
 from textwrap import wrap as wrap_
 
@@ -65,10 +64,7 @@ def getargspec(obj):
     Args and kwargs are True for the respective unlimited argument type.
     """
     
-    if not isinstance(obj, collections.Callable):
-        raise TypeError(type(obj) + " is not callable")
-    
-    argnames, varargs, varkw, defaults = None, None, None, None
+    argnames, varargs, varkw, _defaults = None, None, None, None
     
     if inspect.isfunction(obj) or inspect.ismethod(obj):
         argnames, varargs, varkw, _defaults = inspect.getargspec(obj)
@@ -82,6 +78,9 @@ def getargspec(obj):
     
     elif hasattr(obj, '__call__'):
         argnames, varargs, varkw, _defaults = inspect.getargspec(obj.__call__)
+    
+    else:
+        raise TypeError("Object not callable?")
     
     # Need test case to prove this is even possible.
     # if (argnames, varargs, varkw, defaults) is (None, None, None, None):
