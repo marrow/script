@@ -1,130 +1,206 @@
 # encoding: utf-8
 
+import logging
+
 from pprint import pformat
 from unittest import TestCase
 
 from marrow.util.compat import IO, unicode
 
 from marrow.script.core import *
-import callables
+
+from marrow.script import annotate, describe
+
+
+
+def simple():
+    "A simple function that takes no arguments."
+    print "Hello world!"
+
+
+def retval():
+    "A simple function that takes no arguments and returns a status code of 1."
+    print "Farewell cruel world!"
+    return 1
+
+
+def single(name):
+    """A simple function with a single argument, no default value.
+    
+    Additionally, this has a long description."""
+    logging.debug("name=%r", name)
+    assert isinstance(name, str)
+    print "Hello %s!" % (name, )
+
+
+def default(name="world"):
+    "A simple function with a single argument, string default value."
+    logging.debug("name=%r", name)
+    assert isinstance(name, str)
+    
+    print "Hello %s!" % (name, )
+    
+    return 0 if name == "world" else 1
+
+
+def integer(value=0):
+    "A simple function with a single argument, numeric default value."
+    logging.debug("value=%r", value)
+    assert isinstance(value, int)
+    
+    print "%d" % (value, )
+    
+    return value
+
+
+def boolean(value=False):
+    return 1 if value else 0
+
+
+def lists(value=[]):
+    return len(value)
+
+
+@annotate(x=int, y=int)
+def multiply(x, y):
+    "A decorated function with two, non-defaulting arguments."
+    logging.debug("x=%r y=%r", x, y)
+    assert isinstance(x, int)
+    assert isinstance(y, int)
+    
+    print "%d * %d = %d" % (x, y, x * y)
+    return x * y
+
+
+def args(*args):
+    """A function that takes unlimited arguments."""
+    logging.debug("args=%r", args)
+    return len(args)
+
+
+def kwargs(**kw):
+    """A function that takes unlimited keyword arguments."""
+    logging.debug("kw=%r", kw)
+    return len(kw)
+
 
 
 
 class TestCore(TestCase):
     def test_simple(self):
-        _ = Parser(callables.simple)()
+        _ = Parser(simple)()
         self.assertEquals(_, None)
         
-        _ = Parser(callables.simple)(['-h'])
+        _ = Parser(simple)(['-h'])
         self.assertEquals(_, 64)
         
-        _ = Parser(callables.simple)(['--help'])
+        _ = Parser(simple)(['--help'])
         self.assertEquals(_, 64)
         
-        _ = Parser(callables.simple)(['-V'])
+        _ = Parser(simple)(['-V'])
         self.assertEquals(_, 64)
         
-        _ = Parser(callables.simple)(['--version'])
+        _ = Parser(simple)(['--version'])
         self.assertEquals(_, 64)
     
     def test_retval(self):
-        _ = Parser(callables.retval)()
+        _ = Parser(retval)()
         self.assertEquals(_, 1)
     
     def test_single(self):
-        _ = Parser(callables.single)(["world"])
+        _ = Parser(single)(["world"])
         self.assertEquals(_, None)
         
-        _ = Parser(callables.single)(["--", "--world"])
+        _ = Parser(single)(["--", "--world"])
         self.assertEquals(_, None)
     
     def test_single_error(self):
-        _ = Parser(callables.single)()
+        _ = Parser(single)()
         self.assertEquals(_, 64)
     
     def test_default(self):
-        _ = Parser(callables.default)()
+        _ = Parser(default)()
         self.assertEquals(_, 0)
         
-        _ = Parser(callables.default)(['father'])
+        _ = Parser(default)(['father'])
         self.assertEquals(_, 64)
         
-        _ = Parser(callables.default)(['--name=father'])
+        _ = Parser(default)(['--name=father'])
         self.assertEquals(_, 1)
         
-        _ = Parser(callables.default)(['--name', 'father'])
+        _ = Parser(default)(['--name', 'father'])
         self.assertEquals(_, 1)
     
     def test_integer(self):
-        _ = Parser(callables.integer)()
+        _ = Parser(integer)()
         self.assertEquals(_, 0)
         
-        _ = Parser(callables.integer)(['--value=1'])
+        _ = Parser(integer)(['--value=1'])
         self.assertEquals(_, 1)
         
-        _ = Parser(callables.integer)(['--value=a'])
+        _ = Parser(integer)(['--value=a'])
         self.assertEquals(_, 64)
     
     def test_boolean(self):
-        _ = Parser(callables.boolean)()
+        _ = Parser(boolean)()
         self.assertEquals(_, 0)
         
-        _ = Parser(callables.boolean)(['--value'])
+        _ = Parser(boolean)(['--value'])
         self.assertEquals(_, 1)
         
-        _ = Parser(callables.boolean)(['-v'])
+        _ = Parser(boolean)(['-v'])
         self.assertEquals(_, 1)
         
-        _ = Parser(callables.boolean)(['-v', '-v'])
+        _ = Parser(boolean)(['-v', '-v'])
         self.assertEquals(_, 64)
         
-        _ = Parser(callables.boolean)(['a'])
+        _ = Parser(boolean)(['a'])
         self.assertEquals(_, 64)
     
     def test_lists(self):
-        _ = Parser(callables.lists)()
+        _ = Parser(lists)()
         self.assertEquals(_, 0)
         
-        _ = Parser(callables.lists)(['--value', '1'])
+        _ = Parser(lists)(['--value', '1'])
         self.assertEquals(_, 1)
         
-        _ = Parser(callables.lists)(['--value=1,2,3'])
+        _ = Parser(lists)(['--value=1,2,3'])
         self.assertEquals(_, 3)
     
     def test_multiply(self):
-        _ = Parser(callables.multiply)()
+        _ = Parser(multiply)()
         self.assertEquals(_, 64)
         
-        _ = Parser(callables.multiply)(['2'])
+        _ = Parser(multiply)(['2'])
         self.assertEquals(_, 64)
         
-        _ = Parser(callables.multiply)(['2', '4'])
+        _ = Parser(multiply)(['2', '4'])
         self.assertEquals(_, 8)
     
     def test_args(self):
-        _ = Parser(callables.args)()
+        _ = Parser(args)()
         self.assertEquals(_, 0)
         
-        _ = Parser(callables.args)(['--help'])
+        _ = Parser(args)(['--help'])
         self.assertEquals(_, 64)
         
-        _ = Parser(callables.args)(['value'])
+        _ = Parser(args)(['value'])
         self.assertEquals(_, 1)
         
-        _ = Parser(callables.args)(['value', 'value'])
+        _ = Parser(args)(['value', 'value'])
         self.assertEquals(_, 2)
         
-        _ = Parser(callables.args)(['--', '--value'])
+        _ = Parser(args)(['--', '--value'])
         self.assertEquals(_, 1)
     
     def test_kwargs(self):
-        _ = Parser(callables.kwargs)()
+        _ = Parser(kwargs)()
         self.assertEquals(_, 0)
         
-        _ = Parser(callables.kwargs)(['--help'])
+        _ = Parser(kwargs)(['--help'])
         self.assertEquals(_, 64)
         
-        _ = Parser(callables.kwargs)(['--name=value'])
+        _ = Parser(kwargs)(['--name=value'])
         self.assertEquals(_, 1)
     
     def test_core_callbacks(self):
@@ -134,10 +210,10 @@ class TestCore(TestCase):
         def myver(obj, spec):
             return -2
         
-        _ = Parser(callables.simple, help=myhelp)(['--help'])
+        _ = Parser(simple, help=myhelp)(['--help'])
         self.assertEquals(_, -1)
         
-        _ = Parser(callables.simple, version=myver)(['--version'])
+        _ = Parser(simple, version=myver)(['--version'])
         self.assertEquals(_, -2)
     
     def test_class(self):
