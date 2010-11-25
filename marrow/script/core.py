@@ -75,7 +75,7 @@ class Parser(object):
                 elif value is not None:
                     types_[name] = type(value)
             
-            if name not in short.itervalues():
+            if name not in short.values():
                 for i in list(name):
                     if i in short: continue
                     short[i] = name
