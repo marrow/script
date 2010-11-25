@@ -3,6 +3,7 @@
 import sys
 import types
 import inspect
+import collections
 
 from textwrap import wrap as wrap_
 
@@ -64,7 +65,7 @@ def getargspec(obj):
     Args and kwargs are True for the respective unlimited argument type.
     """
     
-    if not callable(obj):
+    if not isinstance(obj, collections.Callable):
         raise TypeError, "%s is not callable" % type(obj)
     
     argnames, varargs, varkw, defaults = None, None, None, None
