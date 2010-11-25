@@ -1,5 +1,7 @@
 # encoding: utf-8
 
+from __future__ import print_function
+
 import logging
 
 from pprint import pformat
@@ -15,12 +17,12 @@ from marrow.script import annotate, describe
 
 def simple():
     "A simple function that takes no arguments."
-    print "Hello world!"
+    print("Hello world!")
 
 
 def retval():
     "A simple function that takes no arguments and returns a status code of 1."
-    print "Farewell cruel world!"
+    print("Farewell cruel world!")
     return 1
 
 
@@ -30,7 +32,7 @@ def single(name):
     Additionally, this has a long description."""
     logging.debug("name=%r", name)
     assert isinstance(name, str)
-    print "Hello %s!" % (name, )
+    print("Hello "+name+"%s!")
 
 
 def default(name="world"):
@@ -38,7 +40,7 @@ def default(name="world"):
     logging.debug("name=%r", name)
     assert isinstance(name, str)
     
-    print "Hello %s!" % (name, )
+    print("Hello "+name+"!")
     
     return 0 if name == "world" else 1
 
@@ -48,7 +50,7 @@ def integer(value=0):
     logging.debug("value=%r", value)
     assert isinstance(value, int)
     
-    print "%d" % (value, )
+    print(value)
     
     return value
 
@@ -68,7 +70,7 @@ def multiply(x, y):
     assert isinstance(x, int)
     assert isinstance(y, int)
     
-    print "%d * %d = %d" % (x, y, x * y)
+    print(x, '*', y, '=', x * y)
     return x * y
 
 
