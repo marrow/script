@@ -124,9 +124,6 @@ class TestCore(TestCase):
         _ = Parser(default)()
         self.assertEquals(_, 0)
         
-        _ = Parser(default)(['father'])
-        self.assertEquals(_, 64)
-        
         _ = Parser(default)(['--name=father'])
         self.assertEquals(_, 1)
         
