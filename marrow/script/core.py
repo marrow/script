@@ -1,17 +1,18 @@
 # encoding: utf-8
 
 from __future__ import print_function
+from __future__ import unicode_literals
 
 import os
 import sys
 import types
 import inspect
-import logging
 
+from marrow.util.compat import binary, unicode
 from marrow.util.object import NoDefault
 from marrow.util.bunch import Bunch
 from marrow.util.convert import boolean, array
-from marrow.script.util import getargspec, wrap
+from marrow.script.util import getargspec, wrap, partitionhelp
 
 
 
@@ -27,16 +28,16 @@ class Parser(object):
     
     def __call__(self, argv=None):
         if argv is None: argv = []
+        argv = [(i.decode(sys.getdefaultencoding()) if isinstance(i, binary) else i) for i in argv]
         
         if inspect.isclass(self.callable):
-            raise NotImplementedError
-            # return self.execute_class(self.callable, argv)
+            return self.execute_class(self.callable, argv)
         
         return self.execute_function(self.callable, argv)
     
     def execute_function(self, fn, argv, top=True):
         spec = self.spec(fn, top)
-        args, kwargs, complete = self.process(argv, spec)
+        args, kwargs, complete = self.process(fn, argv, spec)
         
         if top:
             if kwargs.get('version', False):
@@ -45,12 +46,50 @@ class Parser(object):
             if kwargs.get('help', False) or not complete:
                 return self.help(fn, spec)
         
-        del kwargs['help'], kwargs['version']
+        try:
+            del kwargs['help'], kwargs['version']
+        except:
+            pass
         
         return fn(*args, **kwargs)
     
-    def execute_class(self, cls, argv, top=True): # pragma: no cover
-        pass
+    def execute_class(self, cls, argv, top=True):
+        spec = self.spec(cls, top)
+        
+        args, kwargs, complete = self.process(cls, argv, spec)
+        
+        if kwargs.get('version', False):
+            return self.version(fn, spec)
+        
+        if kwargs.get('help', False) or not complete or not args or not args[0][0].isalpha():
+            return self.help(cls, spec)
+        
+        try:
+            del kwargs['help'], kwargs['version']
+        except:
+            pass
+        
+        instance = cls(**kwargs)
+        cmdname = args.pop(0)
+        cmd = getattr(instance, cmdname, None)
+        
+        if cmd is None:
+            print("Unknown command:", cmdname)
+            return self.help(cls, spec)
+        
+        spec = self.spec(cmd, False)
+        
+        args, kwargs, complete = self.process(cmd, args, spec)
+        
+        if kwargs.get('help', False) or not complete:
+            return self.help((cls, cmd), spec)
+        
+        try:
+            del kwargs['help']
+        except:
+            pass
+        
+        return cmd(*args, **kwargs)
     
     def spec(self, fn, top=True):
         arguments, keywords, args, kwargs = getargspec(fn)
@@ -59,9 +98,12 @@ class Parser(object):
         args_range = getattr(fn, '_min_args', len(arguments) - len(keywords)), getattr(fn, '_max_args', len(arguments) - len(keywords))
         short = getattr(fn, '_cmd_shorts', dict())
         
+        keywords['help'], types_['help'], short['h'], descriptions['help'] = None, boolean, 'help', "Display this help and exit."
+        
         if top:
-            keywords['help'], types_['help'], short['h'], descriptions['help'] = None, boolean, 'help', "Display this help and exit."
             keywords['version'], types_['version'], short['V'], descriptions['version'] = None, boolean, 'version', "Show version and copyright information, then exit."
+        
+        arguments = [i for i in arguments if i not in keywords]
         
         for name in keywords:
             value = keywords[name]
@@ -92,7 +134,7 @@ class Parser(object):
                 short = short
             )
     
-    def process(self, argv, spec):
+    def process(self, obj, argv, spec):
         """Return usable *args and **kwargs for the given callable spec.
         
         Technically, the *args returned by this method are otherwise unmatched command line arguments.
@@ -105,8 +147,6 @@ class Parser(object):
         
         state = None # stores "current" argument if using --name value (vs. --name=value)
         nomore = False # If we encounter -- (without a name), stop processing dash-prefixed elements.
-        
-        logging.debug("argv=%r", argv)
         
         # Pre-process the arglist, expanding short-form names into long ones.
         _ = []
@@ -132,7 +172,7 @@ class Parser(object):
         
         argv = _; del _
         
-        logging.debug("argv=%r", argv)
+        unhandled = False
         
         for arg in argv:
             if arg == '--':
@@ -148,8 +188,9 @@ class Parser(object):
             if not nomore and arg.startswith('--'):
                 name, _, value = arg[2:].partition('=')
                 
-                if name in seen:
-                    return [], {}, False
+                if (inspect.isclass(obj) and unhandled) or name in seen or name not in kwargs:
+                    args.append(arg)
+                    continue
                 
                 seen[name] = True
                 
@@ -171,10 +212,12 @@ class Parser(object):
                 continue
             
             if arguments:
-                name = arguments.pop(0)
+                name = arguments.pop()
                 
                 if name in seen or name in kwargs:
-                    return [], {}, False
+                    unhandled = True
+                    args.append(arg)
+                    continue
                 
                 seen[name] = True
                 
@@ -186,47 +229,44 @@ class Parser(object):
                 
                 continue
             
-            logging.debug("seen=%r arguments=%r, args=%r/%r/%r, kwargs=%r", seen, arguments, args, len(args), list(args), kwargs)
             args.append(arg)
         
-        logging.debug("seen=%r arguments=%r, args=%r, kwargs=%r", seen, arguments, args, kwargs)
         complete = len([i for i in kwargs if i in spec.arguments]) == len(spec.arguments)
         
         return args, kwargs, complete
     
     def help(self, obj, spec):
-        def partitionhelp(s):
-            if s is None: return "", ""
-            
-            head = []
-            tail = []
-            _ = head
-            
-            for line in [i.strip() for i in s.splitlines()]:
-                if not line and _ is head:
-                    _ = tail
-                    continue
-                
-                _.append(line)
-            
-            return head, tail
+        cls = None
+        
+        if isinstance(obj, tuple):
+            cls, obj = obj
         
         doc, doc2 = partitionhelp(getattr(obj, '__doc__', None))
         
         if doc:
             print(wrap(doc))
         
-        print('Usage:', sys.argv[0], end='')
-        if spec.keywords: print('[OPTIONS]', end='')
+        print('Usage:', os.path.basename(sys.argv[0]), end=' ')
         
-        if spec.kwargs: print('[--name=value...]', end='')
+        if not cls and spec.keywords:
+            print('[OPTIONS] ', end='')
+        
+        elif cls:
+            print('[OPTIONS] ...', obj.__name__, end=' ')
+            if spec.keywords:
+                print('[CMDOPTS] ', end='')
+        
+        if spec.kwargs: print('[--name=value...] ', end='')
         
         for arg in spec.arguments:
             if arg in spec.keywords: continue
-            print('<%s>' % arg, end='')
+            print('<%s> ' % arg, end='')
         
         if spec.args:
-            print('[value...]')
+            print('[value...] ', end='')
+        
+        if inspect.isclass(obj):
+            print('<COMMAND> [CMDOPTS] ...', end='')
         
         keywords = dict(spec.keywords)
         types = dict(spec.types)
@@ -234,27 +274,47 @@ class Parser(object):
         shorts = dict([(spec.short[i], i) for i in spec.short])
         
         if keywords:
-            print("\n\nOPTIONS may be one or more of:\n")
+            print("\n\n", "CMDOPTS" if cls else "OPTIONS" , " may be one or more of:\n", sep='')
             help = dict()
             
             for name in keywords:
                 default = keywords[name]
                 if types.get(name, None) is boolean:
-                    help["--" + name + ", -" + shorts[name]] = docs.get(name, "Toggle this value.\nDefault: %r" % default)
+                    help["-" + shorts[name] + ", --" + name] = docs.get(name, "Toggle this value.\nDefault: %r" % default)
                     continue
                 
                 if types.get(name, True) is None:
-                    help["--" + name + ", -" + shorts[name]] = docs.get(name, "Magic option.")
+                    help["-" + shorts[name] + ", --" + name] = docs.get(name, "Magic option.")
                     continue
                 
-                help["--" + name + "=VAL" + ", -" + shorts[name] + ' VAL'] = docs.get(name, "Override this value.\nDefault: %r" % default)
+                help["-" + shorts[name] + ", --" + name + "=VAL"] = docs.get(name, "Override this value.\nDefault: %r" % default)
             
             mlen = max([len(i) for i in help])
             
             for name in sorted(help):
                 print(" %-*s  %s" % (mlen, name, wrap(help[name]).replace("\n", "\n" + " " * (mlen + 3))))
         
-        if doc2: print("\n", wrap(doc2))
+        if inspect.isclass(obj):
+            print('\nCOMMAND may be one of:\n')
+            
+            cmds = dict()
+            for cmd in dir(obj):
+                if cmd[0] == '_': continue
+                
+                h1, h2 = partitionhelp(getattr(getattr(obj, cmd), '__doc__', "No information available."))
+                
+                cmds[cmd] = h1
+            
+            mlen = max([len(i) for i in cmds])
+            
+            for name in sorted(cmds):
+                print(" %-*s  %s" % (mlen, name, wrap(cmds[name]).replace("\n", "\n" + " " * (mlen + 3))))
+            
+            print(wrap("\nFor help on a specific command, call the command and pass --help in CMDOPTS."))
+        
+        if doc2: print("\n", wrap(doc2), sep='')
+        
+        print()
         
         return os.EX_USAGE
     

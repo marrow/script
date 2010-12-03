@@ -1,5 +1,7 @@
 # encoding: utf-8
 
+from __future__ import unicode_literals
+
 import sys
 import types
 import inspect
@@ -7,7 +9,7 @@ import inspect
 from textwrap import wrap as wrap_
 
 
-__all__ = ['wrap', 'InspectionComplete', 'InspectionFailed', 'getargspec']
+__all__ = ['wrap', 'InspectionComplete', 'InspectionFailed', 'getargspec', 'partitionhelp']
 
 
 def wrap(text, columns=78):
@@ -106,3 +108,20 @@ def getargspec(obj):
         # del argnames[-len(_defaults):]
     
     return argnames, defaults, True if varargs else False, True if varkw else False
+
+
+def partitionhelp(s):
+    if s is None: return "", ""
+    
+    head = []
+    tail = []
+    _ = head
+    
+    for line in [i.strip() for i in s.splitlines()]:
+        if not line and _ is head:
+            _ = tail
+            continue
+        
+        _.append(line)
+    
+    return head, tail

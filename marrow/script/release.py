@@ -4,8 +4,8 @@
 
 
 name = "marrow.script"
-version = "1.0"
-release = "1.0"
+version = "1.1"
+release = "1.1"
 
 summary = "Turn any callable into a powerful command line script through arglist introspection."
 description = """The marrow.script package is a small library for turning average every-day
