@@ -5,15 +5,28 @@ from __future__ import unicode_literals
 
 import os
 import sys
-import types
 import inspect
 
-from marrow.util.compat import binary, unicode
+from pprint import pformat
+
+from marrow.util.compat import binary, unicode, exception
 from marrow.util.object import NoDefault
 from marrow.util.bunch import Bunch
 from marrow.util.convert import boolean, array
 from marrow.script.util import getargspec, wrap, partitionhelp
 
+
+__all__ = ['ExitException', 'Parser']
+
+
+# Mac OS X terminal lies, so do others, probably.
+# TODO: Needs testing; works on OS X.
+encoding = sys.getdefaultencoding() if sys.getdefaultencoding() != 'ascii' else 'utf8'
+
+
+
+class ExitException(Exception):
+    pass
 
 
 class Parser(object):
@@ -27,95 +40,121 @@ class Parser(object):
             self.version = version
     
     def __call__(self, argv=None):
-        if argv is None: argv = []
-        argv = [(i.decode(sys.getdefaultencoding()) if isinstance(i, binary) else i) for i in argv]
-        
-        if inspect.isclass(self.callable):
-            return self.execute_class(self.callable, argv)
-        
-        return self.execute_function(self.callable, argv)
-    
-    def execute_function(self, fn, argv, top=True):
-        spec = self.spec(fn, top)
-        args, kwargs, complete = self.process(fn, argv, spec)
-        
-        if top:
-            if kwargs.get('version', False):
-                return self.version(fn, spec)
+        try:
+            spec = self.spec(self.callable)
+            # print(pformat(dict(spec)))
             
-            if kwargs.get('help', False) or not complete:
-                return self.help(fn, spec)
+            argv = self.prepare(argv, spec)
+            # print(pformat(argv))
+            
+            details = self.process(argv, spec)
+            # print(pformat(dict(details)))
+            
+            if not spec.cls and ( not details.complete or details.remainder ):
+                self.help(True, spec)
+            
+            if not spec.cls:
+                return self.callable(*details.args, **details.kwargs)
+            
+            instance = self.callable(*details.args, **details.kwargs)
+            
+            if not [i for i in details.remainder if i[0] != '-']:
+                self.help(True, spec)
+            
+            command = [i for i in details.remainder if i[0] != '-'][0]
+            details.remainder.remove(command)
+            
+            try:
+                command = getattr(instance, command)
+            
+            except AttributeError:
+                print("Unknown command:", command)
+                self.help(True, spec)
+            
+            cmd_spec = self.spec(command, instance)
+            # print(pformat(dict(cmd_spec)))
+            
+            argv = self.prepare(details.remainder, cmd_spec)
+            
+            cmd_details = self.process(argv, cmd_spec)
+            # print(pformat(dict(cmd_details)))
+            
+            if not cmd_details.complete:
+                print("Insufficient arguments.")
+                self.help(True, spec)
+            
+            if cmd_details.remainder:
+                print("Unexpected arguments.")
+                self.help(True, spec)
+            
+            return command(*cmd_details.args, **cmd_details.kwargs)
         
-        try:
-            del kwargs['help'], kwargs['version']
-        except:
-            pass
-        
-        return fn(*args, **kwargs)
+        except ExitException:
+            exc = exception().exception
+            
+            if exc.args[1]:
+                print(exc.args[1])
+            
+            return exc.args[0]
     
-    def execute_class(self, cls, argv, top=True):
-        spec = self.spec(cls, top)
+    def prepare(self, argv, spec):
+        # Handle empty argument list.
+        if argv is None: argv = []
         
-        args, kwargs, complete = self.process(cls, argv, spec)
+        # Expand single-hyphen arguments to their long form.
+        argv_ = []
+        for arg in argv:
+            # Convert to unicode.
+            arg = arg.decode(encoding) if isinstance(arg, binary) else arg
+            
+            # Skip empty arguments.  Don't know how we can have these, though...
+            if not arg: continue
+            
+            # A double-hyphen argument signals the end of hyphenated arguments.
+            if arg == '--' or '--' in argv_:
+                argv_.append(arg)
+                continue
+            
+            if arg[0] == '-':
+                if arg[1] == '-':
+                    argv_.append(arg)
+                    continue
+                
+                for part in list(arg[1:]):
+                    name = spec.short.get(part, None)
+                    if name is None: raise Exception('Unknown argument "-' + part + '".')
+                    argv_.append('--' + name)
+                
+                continue
+            
+            argv_.append(arg)
         
-        if kwargs.get('version', False):
-            return self.version(fn, spec)
-        
-        if kwargs.get('help', False) or not complete or not args or not args[0][0].isalpha():
-            return self.help(cls, spec)
-        
-        try:
-            del kwargs['help'], kwargs['version']
-        except:
-            pass
-        
-        instance = cls(**kwargs)
-        cmdname = args.pop(0)
-        cmd = getattr(instance, cmdname, None)
-        
-        if cmd is None:
-            print("Unknown command:", cmdname)
-            return self.help(cls, spec)
-        
-        spec = self.spec(cmd, False)
-        
-        args, kwargs, complete = self.process(cmd, args, spec)
-        
-        if kwargs.get('help', False) or not complete:
-            return self.help((cls, cmd), spec)
-        
-        try:
-            del kwargs['help']
-        except:
-            pass
-        
-        return cmd(*args, **kwargs)
+        return argv_
     
-    def spec(self, fn, top=True):
-        arguments, keywords, args, kwargs = getargspec(fn)
-        descriptions = getattr(fn, '_cmd_arg_doc', dict())
-        types_ = getattr(fn, '_cmd_arg_types', dict())
-        args_range = getattr(fn, '_min_args', len(arguments) - len(keywords)), getattr(fn, '_max_args', len(arguments) - len(keywords))
-        short = getattr(fn, '_cmd_shorts', dict())
+    def spec(self, obj, top=True):
+        is_class = inspect.isclass(obj)
         
-        keywords['help'], types_['help'], short['h'], descriptions['help'] = None, boolean, 'help', "Display this help and exit."
+        # Load up the canonical argument specification.
+        arguments, keywords, args, kwargs = getargspec(obj)
         
-        if top:
-            keywords['version'], types_['version'], short['V'], descriptions['version'] = None, boolean, 'version', "Show version and copyright information, then exit."
+        # Load up decorator-provided details.
+        docs = getattr(obj, '_cmd_arg_doc', dict())
+        conv = getattr(obj, '_cmd_arg_types', dict())
+        short = getattr(obj, '_cmd_shorts', dict())
+        callbacks = getattr(obj, '_cmd_callbacks', dict())
         
-        arguments = [i for i in arguments if i not in keywords]
-        
-        for name in keywords:
-            value = keywords[name]
-            if name not in types_:
-                if isinstance(value, bool):
-                    types_[name] = boolean
-                
-                elif isinstance(value, (list, tuple)):
-                    types_[name] = array
-                
-                elif value is not None:
-                    types_[name] = type(value)
+        # Pre-process some of the data.
+        for name in sorted(keywords.keys()):
+            # Remove keyword arguments from argument list.
+            if name in arguments:
+                arguments.remove(name)
+            
+            # Determine if we need to typecast data automatically.
+            if name not in conv:
+                value = keywords[name]
+                if isinstance(value, bool): conv[name] = boolean
+                elif isinstance(value, (list, tuple)): conv[name] = array
+                elif value is not None: conv[name] = type(value)
             
             if name not in short.values():
                 for i in list(name):
@@ -123,128 +162,91 @@ class Parser(object):
                     short[i] = name
                     break
         
+        minmax = getattr(obj, '_min_args', len(arguments)), getattr(obj, '_max_args', None if args else len(arguments))
+        
+        # -h/--help is always an option.
+        keywords[b'help'], conv[b'help'], short[b'h'], docs[b'help'], callbacks[b'help'] = \
+                False, boolean, b'help', "Display this help and exit.", self.help
+        
+        # -V/--version is an option if we are inspecting a class or not using classes at all.
+        if top and hasattr(obj, '_cmd_script'):
+            keywords[b'version'], conv[b'version'], short[b'V'], docs[b'version'], callbacks[b'version'] = \
+                    False, boolean, b'version', "Show version and copyright information, then exit.", self.version
+        
         return Bunch(
+                cls = is_class,
+                obj = obj,
                 arguments = arguments,
                 keywords = keywords,
                 args = args,
                 kwargs = kwargs,
-                descriptions = descriptions,
-                types = types_,
-                range = args_range,
-                short = short
+                docs = docs,
+                conv = conv,
+                range = minmax,
+                short = short,
+                callbacks = callbacks
             )
     
-    def process(self, obj, argv, spec):
-        """Return usable *args and **kwargs for the given callable spec.
+    def process(self, argv, spec):
+        args = [] # positional arguments to the callable defined by spec
+        kwargs = {} # keyword arguments to the callable defined by spec
+        remainder = [] # values otherwise unmatched
+        state = None # kwarg name the next argument will fill
         
-        Technically, the *args returned by this method are otherwise unmatched command line arguments.
-        """
-        
-        arguments = list(reversed(spec.arguments))
-        args = []
-        kwargs = dict(spec.keywords) # default, then override
-        seen = {None: True}
-        
-        state = None # stores "current" argument if using --name value (vs. --name=value)
-        nomore = False # If we encounter -- (without a name), stop processing dash-prefixed elements.
-        
-        # Pre-process the arglist, expanding short-form names into long ones.
-        _ = []
-        for arg in argv:
-            if arg == '--' or '--' in _:
-                _.append(arg)
-                continue
-            
-            if arg[0] == '-':
-                if arg[1] == '-':
-                    _.append(arg)
+        for argument in argv:
+            if state:
+                if state not in spec.keywords:
+                    remainder.extend(['--' + state, argument])
                     continue
                 
-                for part in list(arg[1:]): # TODO: Give positional arguments short names.
-                    name = spec.short.get(part, None)
-                    if name in seen: raise ValueError
-                    
-                    _.append('--' + name)
-                
-                continue
-            
-            _.append(arg)
-        
-        argv = _; del _
-        
-        unhandled = False
-        
-        for arg in argv:
-            if arg == '--':
-                nomore = True
-                continue
-            
-            if state:
-                if not nomore and arg.startswith('-'): raise ValueError
-                kwargs[state] = spec.types.get(state, str)(arg)
+                kwargs[state] = spec.callbacks.get(state, lambda a, b: a)(spec.conv.get(state, unicode)(argument), spec)
                 state = None
                 continue
             
-            if not nomore and arg.startswith('--'):
-                name, _, value = arg[2:].partition('=')
-                
-                if (inspect.isclass(obj) and unhandled) or name in seen or name not in kwargs:
-                    args.append(arg)
-                    continue
-                
-                seen[name] = True
-                
-                if not value and spec.types.get(name, None) is boolean:
-                    kwargs[name] = not kwargs.get(name, False) # if the default is True, save False
-                    if name in arguments: arguments.remove(name)
-                    continue
-                
-                if not value:
-                    state = name
-                    continue
-                
-                try:
-                    kwargs[name] = spec.types.get(name, str)(value)
-                
-                except:
-                    return [], {}, False
-                
+            if argument == '--':
+                state = False
                 continue
             
-            if arguments:
-                name = arguments.pop()
+            if state is not False and argument[0] == '-':
+                argument = argument[2:]
                 
-                if name in seen or name in kwargs:
-                    unhandled = True
-                    args.append(arg)
+                if '=' not in argument:
+                    if spec.conv.get(argument, None) is boolean:
+                        # if the default is True, save False
+                        kwargs[argument] = spec.callbacks.get(argument, lambda a, b: a)(not spec.keywords.get(argument, False), spec)
+                        continue
+                    
+                    state = argument.encode('ascii')
                     continue
                 
-                seen[name] = True
+                argument, _, value = argument.partition('=')
+                argument = argument.encode('ascii')
                 
-                try:
-                    kwargs[name] = spec.types.get(name, str)(arg)
+                if argument not in spec.keywords:
+                    remainder.append('--' + argument + '=' + value)
+                    continue
                 
-                except:
-                    return [], {}, False
-                
+                kwargs[argument] = spec.callbacks.get(argument, lambda a, b: a)(spec.conv.get(argument, unicode)(value), spec)
                 continue
             
-            args.append(arg)
+            if spec.range[1] is not None and len(args) < spec.range[1]:
+                name = spec.arguments[len(args)]
+                args.append(spec.callbacks.get(name, lambda a, b: a)(spec.conv.get(name, unicode)(argument), spec))
+                continue
+            
+            remainder.append(argument)
         
-        complete = len([i for i in kwargs if i in spec.arguments]) == len(spec.arguments)
+        complete = spec.range[0] <= len(args) <= (spec.range[1] if spec.range[1] is not None else 65534)
         
-        return args, kwargs, complete
+        return Bunch(complete=complete, args=args, kwargs=kwargs, remainder=remainder)
     
-    def help(self, obj, spec):
-        cls = None
-        
-        if isinstance(obj, tuple):
-            cls, obj = obj
+    def help(self, arg, spec):
+        obj = spec.obj
+        cls = spec.cls
         
         doc, doc2 = partitionhelp(getattr(obj, '__doc__', None))
         
-        if doc:
-            print(wrap(doc))
+        if doc: print(wrap(doc))
         
         print('Usage:', os.path.basename(sys.argv[0]), end=' ')
         
@@ -269,8 +271,8 @@ class Parser(object):
             print('<COMMAND> [CMDOPTS] ...', end='')
         
         keywords = dict(spec.keywords)
-        types = dict(spec.types)
-        docs = dict(spec.descriptions)
+        conv = dict(spec.conv)
+        docs = dict(spec.docs)
         shorts = dict([(spec.short[i], i) for i in spec.short])
         
         if keywords:
@@ -279,11 +281,11 @@ class Parser(object):
             
             for name in keywords:
                 default = keywords[name]
-                if types.get(name, None) is boolean:
+                if conv.get(name, None) is boolean:
                     help["-" + shorts[name] + ", --" + name] = docs.get(name, "Toggle this value.\nDefault: %r" % default)
                     continue
                 
-                if types.get(name, True) is None:
+                if conv.get(name, True) is None:
                     help["-" + shorts[name] + ", --" + name] = docs.get(name, "Magic option.")
                     continue
                 
@@ -294,7 +296,7 @@ class Parser(object):
             for name in sorted(help):
                 print(" %-*s  %s" % (mlen, name, wrap(help[name]).replace("\n", "\n" + " " * (mlen + 3))))
         
-        if inspect.isclass(obj):
+        if spec.cls:
             print('\nCOMMAND may be one of:\n')
             
             cmds = dict()
@@ -315,14 +317,13 @@ class Parser(object):
         if doc2: print("\n", wrap(doc2), sep='')
         
         print()
-        
-        return os.EX_USAGE
+        raise ExitException(os.EX_USAGE, None)
     
-    def version(self, obj, spec):
-        print(sys.argv[0], end='')
+    def version(self, arg, spec):
+        print(os.path.basename(sys.argv[0]), end='')
         
         try:
-            print("(" + obj._cmd_script['title'] + ")", end='')
+            print("(" + spec.obj._cmd_script['title'] + ")", end='')
         
         except AttributeError:
             pass
@@ -331,7 +332,7 @@ class Parser(object):
             pass
         
         try:
-            print(obj._cmd_script['version'])
+            print(spec.obj._cmd_script['version'])
         
         except AttributeError:
             pass
@@ -340,13 +341,45 @@ class Parser(object):
             pass
         
         try:
-            print("\n" + wrap(obj._cmd_script['copyright']))
+            print("\n" + wrap(spec.obj._cmd_script['copyright']))
         
-        except AttributeError:
-            pass
+        except (AttributeError, KeyError):
+            print()
         
-        except KeyError:
-            pass
-        
-        return os.EX_USAGE
+        print()
+        raise ExitException(os.EX_USAGE, None)
+
+
+
+if __name__ == '__main__':
+    import sys
     
+    def hello(name, verbose=False):
+        if verbose: print("I'm verbose!")
+        print("Hello,", name + "!")
+    
+    class RCScript(object):
+        def __init__(self, verbose=False, quiet=False):
+            pass
+        
+        def start(self, port=8080):
+            print("Starting on port ", port, "...", sep="")
+            pass
+        
+        def stop(self):
+            print("Stopping...")
+            pass
+        
+        def restart(self):
+            self.stop()
+            self.start()
+        
+        def zap(self):
+            print("Zapping...")
+            pass
+        
+        def status(self):
+            print("Status is...")
+            pass
+    
+    sys.exit(Parser(RCScript)(sys.argv[1:]))
