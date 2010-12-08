@@ -41,14 +41,16 @@ class Parser(object):
     
     def __call__(self, argv=None):
         try:
+            print(repr(self.callable))
+            
             spec = self.spec(self.callable)
-            # print(pformat(dict(spec)))
+            print(pformat(dict(spec)))
             
             argv = self.prepare(argv, spec)
-            # print(pformat(argv))
+            print(pformat(argv))
             
             details = self.process(argv, spec)
-            # print(pformat(dict(details)))
+            print(pformat(dict(details)))
             
             if not spec.cls and ( not details.complete or details.remainder ):
                 self.help(True, spec)
@@ -72,12 +74,12 @@ class Parser(object):
                 self.help(True, spec)
             
             cmd_spec = self.spec(command, instance)
-            # print(pformat(dict(cmd_spec)))
+            print(pformat(dict(cmd_spec)))
             
             argv = self.prepare(details.remainder, cmd_spec)
             
             cmd_details = self.process(argv, cmd_spec)
-            # print(pformat(dict(cmd_details)))
+            print(pformat(dict(cmd_details)))
             
             if not cmd_details.complete:
                 print("Insufficient arguments.")
@@ -199,7 +201,11 @@ class Parser(object):
                     remainder.extend(['--' + state, argument])
                     continue
                 
-                kwargs[state] = spec.callbacks.get(state, lambda a, b: a)(spec.conv.get(state, unicode)(argument), spec)
+                try:
+                    kwargs[state] = spec.callbacks.get(state, lambda a, b: a)(spec.conv.get(state, unicode)(argument), spec)
+                except:
+                    self.help(True, spec)
+                
                 state = None
                 continue
             
@@ -211,12 +217,17 @@ class Parser(object):
                 argument = argument[2:]
                 
                 if '=' not in argument:
+                    argument = argument.encode('ascii')
+                    
                     if spec.conv.get(argument, None) is boolean:
                         # if the default is True, save False
-                        kwargs[argument] = spec.callbacks.get(argument, lambda a, b: a)(not spec.keywords.get(argument, False), spec)
+                        try:
+                            kwargs[argument] = spec.callbacks.get(argument, lambda a, b: a)(not spec.keywords.get(argument, False), spec)
+                        except:
+                            self.help(True, spec)
                         continue
                     
-                    state = argument.encode('ascii')
+                    state = argument
                     continue
                 
                 argument, _, value = argument.partition('=')
@@ -226,7 +237,10 @@ class Parser(object):
                     remainder.append('--' + argument + '=' + value)
                     continue
                 
-                kwargs[argument] = spec.callbacks.get(argument, lambda a, b: a)(spec.conv.get(argument, unicode)(value), spec)
+                try:
+                    kwargs[argument] = spec.callbacks.get(argument, lambda a, b: a)(spec.conv.get(argument, unicode)(value), spec)
+                except:
+                    self.help(True, spec)
                 continue
             
             if spec.range[1] is not None and len(args) < spec.range[1]:
