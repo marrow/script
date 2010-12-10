@@ -217,10 +217,3 @@ class TestCore(TestCase):
         
         _ = Parser(simple, version=myver)(['--version'])
         self.assertEquals(_, -2)
-    
-    # def test_class(self):
-    #     class Foo(object):
-    #         pass
-    #     
-    #     self.assertRaises(NotImplementedError, lambda: Parser(Foo)())
-    
