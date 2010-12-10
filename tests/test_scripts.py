@@ -93,7 +93,7 @@ def kwargs(**kw):
 class TestCore(TestCase):
     def test_simple(self):
         _ = Parser(simple)()
-        self.assertEquals(_, None)
+        self.assertEquals(_, 0)
         
         _ = Parser(simple)(['-h'])
         self.assertEquals(_, 64)
@@ -113,10 +113,10 @@ class TestCore(TestCase):
     
     def test_single(self):
         _ = Parser(single)(["world"])
-        self.assertEquals(_, None)
+        self.assertEquals(_, 0)
         
         _ = Parser(single)(["--", "--world"])
-        self.assertEquals(_, None)
+        self.assertEquals(_, 0)
     
     def test_single_error(self):
         _ = Parser(single)()
@@ -207,10 +207,10 @@ class TestCore(TestCase):
     
     def test_core_callbacks(self):
         def myhelp(arg, spec):
-            raise ExitException(-1, None)
+            raise ExitException(-1, 0)
         
         def myver(arg, spec):
-            raise ExitException(-2, None)
+            raise ExitException(-2, 0)
         
         _ = Parser(simple, help=myhelp)(['--help'])
         self.assertEquals(_, -1)
