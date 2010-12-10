@@ -57,7 +57,11 @@ class Parser(object):
                 self.help(True, spec)
             
             if not spec.cls:
-                return self.callable(*details.args, **details.kwargs)
+                return self.callable(*details.args, **details.kwargs) or 0
+            
+            if not details.complete:
+                print("Incomplete argument list.")
+                self.help(True, spec)
             
             instance = self.callable(*details.args, **details.kwargs)
             
@@ -90,7 +94,7 @@ class Parser(object):
                 print("Unexpected arguments.")
                 self.help(True, spec)
             
-            return command(*cmd_details.args, **cmd_details.kwargs)
+            return command(*cmd_details.args, **cmd_details.kwargs) or 0
         
         except ExitException:
             exc = exception().exception
@@ -365,14 +369,8 @@ class Parser(object):
         except KeyError:
             pass
         
-        try:
+        if 'version' in spec.obj._cmd_script:
             print(spec.obj._cmd_script['version'])
-        
-        except AttributeError:
-            pass
-        
-        except KeyError:
-            pass
         
         try:
             print("\n" + wrap(spec.obj._cmd_script['copyright']))
@@ -382,38 +380,3 @@ class Parser(object):
         
         print()
         raise ExitException(os.EX_USAGE, None)
-
-
-
-if __name__ == '__main__':
-    import sys
-    
-    def hello(name, verbose=False):
-        if verbose: print("I'm verbose!")
-        print("Hello,", name + "!")
-    
-    class RCScript(object):
-        def __init__(self, verbose=False, quiet=False):
-            pass
-        
-        def start(self, port=8080):
-            print("Starting on port ", port, "...", sep="")
-            pass
-        
-        def stop(self):
-            print("Stopping...")
-            pass
-        
-        def restart(self):
-            self.stop()
-            self.start()
-        
-        def zap(self):
-            print("Zapping...")
-            pass
-        
-        def status(self):
-            print("Status is...")
-            pass
-    
-    sys.exit(Parser(RCScript)(sys.argv[1:]))
