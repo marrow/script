@@ -1,5 +1,6 @@
 # encoding: utf-8
 
+from __future__ import unicode_literals
 from __future__ import print_function
 
 import logging
@@ -11,10 +12,11 @@ from marrow.util.compat import IO, unicode
 
 from marrow.script.core import *
 
-from marrow.script import annotate, describe
+from marrow.script import script, annotate, describe
 
 
 
+@script(title="Simple", version="1.0")
 def simple():
     "A simple function that takes no arguments."
     print("Hello world!")
@@ -31,16 +33,16 @@ def single(name):
     
     Additionally, this has a long description."""
     logging.debug("name=%r", name)
-    assert isinstance(name, str)
-    print("Hello "+name+"%s!")
+    assert isinstance(name, unicode)
+    print("Hello " + name + "!")
 
 
 def default(name="world"):
     "A simple function with a single argument, string default value."
     logging.debug("name=%r", name)
-    assert isinstance(name, str)
+    assert isinstance(name, unicode)
     
-    print("Hello "+name+"!")
+    print("Hello " + name + "!")
     
     return 0 if name == "world" else 1
 
@@ -150,8 +152,9 @@ class TestCore(TestCase):
         _ = Parser(boolean)(['-v'])
         self.assertEquals(_, 1)
         
+        # Repeated boolean values = single boolean value
         _ = Parser(boolean)(['-v', '-v'])
-        self.assertEquals(_, 64)
+        self.assertEquals(_, 1)
         
         _ = Parser(boolean)(['a'])
         self.assertEquals(_, 64)
@@ -203,11 +206,11 @@ class TestCore(TestCase):
         self.assertEquals(_, 1)
     
     def test_core_callbacks(self):
-        def myhelp(obj, spec):
-            return -1
+        def myhelp(arg, spec):
+            raise ExitException(-1, None)
         
-        def myver(obj, spec):
-            return -2
+        def myver(arg, spec):
+            raise ExitException(-2, None)
         
         _ = Parser(simple, help=myhelp)(['--help'])
         self.assertEquals(_, -1)

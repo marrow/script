@@ -52,7 +52,8 @@ class Parser(object):
             details = self.process(argv, spec)
             print(pformat(dict(details)))
             
-            if not spec.cls and ( not details.complete or details.remainder ):
+            if not spec.cls and ( not details.complete or ( not spec.args and details.remainder ) ):
+                print("Incomplete argument list.")
                 self.help(True, spec)
             
             if not spec.cls:
@@ -214,6 +215,7 @@ class Parser(object):
                 continue
             
             if state is not False and argument[0] == '-':
+                print("longarg:", argument)
                 argument = argument[2:]
                 
                 if '=' not in argument:
@@ -222,9 +224,15 @@ class Parser(object):
                     if spec.conv.get(argument, None) is boolean:
                         # if the default is True, save False
                         try:
+                            print("bool:", repr(spec.callbacks.get(argument, lambda a, b: a)), repr(spec.keywords.get(argument, False)))
                             kwargs[argument] = spec.callbacks.get(argument, lambda a, b: a)(not spec.keywords.get(argument, False), spec)
+                        
+                        except ExitException:
+                            raise
+                        
                         except:
                             self.help(True, spec)
+                        
                         continue
                     
                     state = argument
@@ -233,17 +241,26 @@ class Parser(object):
                 argument, _, value = argument.partition('=')
                 argument = argument.encode('ascii')
                 
-                if argument not in spec.keywords:
+                if not spec.kwargs and argument not in spec.keywords:
                     remainder.append('--' + argument + '=' + value)
                     continue
                 
                 try:
                     kwargs[argument] = spec.callbacks.get(argument, lambda a, b: a)(spec.conv.get(argument, unicode)(value), spec)
+                
+                except ExitException:
+                    raise
+                
                 except:
                     self.help(True, spec)
+                
                 continue
             
-            if spec.range[1] is not None and len(args) < spec.range[1]:
+            if spec.range[1] is None or len(args) < spec.range[1]:
+                if len(args) >= len(spec.arguments):
+                    args.append(argument)
+                    continue
+                
                 name = spec.arguments[len(args)]
                 args.append(spec.callbacks.get(name, lambda a, b: a)(spec.conv.get(name, unicode)(argument), spec))
                 continue
@@ -251,6 +268,9 @@ class Parser(object):
             remainder.append(argument)
         
         complete = spec.range[0] <= len(args) <= (spec.range[1] if spec.range[1] is not None else 65534)
+        
+        if 'help' in kwargs: del kwargs['help']
+        if 'version' in kwargs: del kwargs['version']
         
         return Bunch(complete=complete, args=args, kwargs=kwargs, remainder=remainder)
     
