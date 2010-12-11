@@ -112,7 +112,7 @@ from marrow.script import Parser
 def hello():
     print "Hello world!"
 
-def myhelpfunc(obj, spec):
+def myhelpfunc(v, spec):
     print "Custom help text."
 
 sys.exit(Parser(hello, help=myhelpfunc)(sys.argv[1:]))</code></pre>
@@ -157,50 +157,50 @@ Marrow Script introspects your callable to determine the argument list.  Not onl
 |^<. @name="world"@ |
 |^<. @switch=False@ |^. Explicit boolean switches. If matched on the command-line, the switch is flipped to its opposite value. |
 |^<. @age=18@ |^. Explicit numeric values are converted to numbers automatically. |
-|^<. @callback=callable@ |^. If the default is callable when the switch/argument is encountered it is called and its return value passed to your script.[1] |
 |^<. @*args@ |^. Unlimited positional arguments. |
 |^<. @**kwargs@ |^. A rare use-case, your callable can accept an unlimited number of name=value pairs from the command line. |
-
-Help text from a method using all of the above appears like this:
-
-<pre><code>Usage: ultima.py [OPTIONS] [--name=value...] <required> [value...]
-
-OPTIONS may be one or more of:
-
- --age=VAL, -a VAL    Override this value.
-                      Default: 18
- --help, -h           Display this help and exit.
- --name=VAL, -n VAL   Override this value.
-                      Default: 'world'
- --switch, -s         Toggle this value.
-                      Default: False
- --value=VAL, -v VAL  Override this value.
-                      Default: None
- --version, -V        Show version and copyright information, then exit.</code></pre>
-
-
-fn1. The callback may take no arguments or one argument. It is inspected to determine if the command-line argument is a switch or a name-value pair.
 
 
 h3(#decorators). %4.1.% Descriptive Decorators
 
 Marrow Script comes with a number of decorators which expand upon the knowledge that can be gained via introspection.  These are:
 
-|<. @annotate@ | Explicitly defines the typecasting for each argument.[2][3] |
-|<. @describe@ | Overrides the default help text for each argument.[3] |
+|<. @annotate@ | Explicitly defines the typecasting for each argument.[1][2] |
+|<. @describe@ | Overrides the default help text for each argument.[2] |
 |<. @short@ | Defines a mapping of single-character to full variable name. |
+|<. @callbacks@ | Defines callbacks executed by passing the command-line value (after typecasting) and argument specification. Returns an alternate value to store. |
 
-fn2. Typecasting is performed by any callable that accepts a string value as input; the built-in types @str@, @unicode@, @int@, etc. all support this.  Additionally, to facilitate easier conversion of booleans and lists you can use "marrow.util":marrowutil conversion routines like @boolean@ and @array@.
+fn1. Typecasting is performed by any callable that accepts a string value as input; the built-in types @str@, @unicode@, @int@, etc. all support this.  Additionally, to facilitate easier conversion of booleans and lists you can use "marrow.util":marrowutil conversion routines like @boolean@ and @array@.
 
-fn3. Arguments to these decorators are @name=value@ pairs whereby the name is the name of the argument to your callable.
+fn2. Arguments to these decorators are @name=value@ pairs whereby the name is the name of the argument to your callable.
 
 [marrowutil]https://github.com/pulp/marrow.util
 
 
 h2(#advanced). %5.% Advanced Usage
 
-Documentation on advanced (class-based) usage will be completed during the 1.1 release cycle, when the feature is implemented.
+You can pass a class as the callable to execute. Arguments to @__init__@ are processed first, then the first unmatched non-switch argument is used as the method to call. Arguments ignored by @__init__@ are then processed using the method's call spec.  For example, consider the following class definition:
 
+<pre><code>class Service(object):
+    def __init__(self, verbose=False):
+        pass # configure logging based on `verbose`
+    
+    def start(self):
+        pass # start something
+    
+    def stop(self, force=False):
+        pass # stop doing things
+    
+    def restart(self):
+        self.stop()
+        self.start()</code></pre>
+
+You can call the script using a number of different forms:
+
+* @./myscript.py@ or @./myscript.py --help@ -- display the help text for the class's __init__ and a list of viable sub-commands.
+* @./myscript.py [start|stop|restart] --help@ -- display help for the sub-command.
+* @./myscript.py start --verbose@ -- Arguments don't have a hard limit on the order.
+* @./myscript.py --verbose stop --force@
 
 
 h2(#license). %6.% Marrow Script License
