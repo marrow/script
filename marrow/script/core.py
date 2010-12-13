@@ -72,7 +72,7 @@ class Parser(object):
             details.remainder.remove(command)
             
             try:
-                command = getattr(instance, command)
+                command = getattr(instance, command.encode('ascii'))
             
             except AttributeError:
                 print("Unknown command:", command)
@@ -204,7 +204,7 @@ class Parser(object):
         for argument in argv:
             if state:
                 if state not in spec.keywords:
-                    remainder.extend(['--' + state, argument])
+                    remainder.extend(['--' + state.decode('ascii'), argument])
                     continue
                 
                 try:
@@ -247,7 +247,7 @@ class Parser(object):
                 argument = argument.encode('ascii')
                 
                 if not spec.kwargs and argument not in spec.keywords:
-                    remainder.append('--' + argument + '=' + value)
+                    remainder.append('--' + argument.decode('ascii') + '=' + value)
                     continue
                 
                 try:
