@@ -72,7 +72,7 @@ class Parser(object):
             details.remainder.remove(command)
             
             try:
-                command = getattr(instance, command.encode('ascii'))
+                command = getattr(instance, command)
             
             except AttributeError:
                 print("Unknown command:", command)
