@@ -324,14 +324,14 @@ class Parser(object):
             for name in keywords:
                 default = keywords[name]
                 if conv.get(name, None) is boolean:
-                    help["-" + shorts[name] + ", --" + name] = docs.get(name, "Toggle this value.\nDefault: %r" % default)
+                    help[(b"-" + shorts[name] + b", --" + name).decode('ascii')] = docs.get(name, "Toggle this value.\nDefault: %r" % default)
                     continue
                 
                 if conv.get(name, True) is None:
-                    help["-" + shorts[name] + ", --" + name] = docs.get(name, "Magic option.")
+                    help[(b"-" + shorts[name] + b", --" + name).decode('ascii')] = docs.get(name, "Magic option.")
                     continue
                 
-                help["-" + shorts[name] + ", --" + name + "=VAL"] = docs.get(name, "Override this value.\nDefault: %r" % default)
+                help[(b"-" + shorts[name] + b", --" + name + b"=VAL").decode('ascii')] = docs.get(name, "Override this value.\nDefault: %r" % default)
             
             mlen = max([len(i) for i in help])
             
