@@ -173,12 +173,12 @@ class Parser(object):
         minmax = getattr(obj, '_min_args', len(arguments)), getattr(obj, '_max_args', None if args else len(arguments))
         
         # -h/--help is always an option.
-        keywords[b'help'], conv[b'help'], short[b'h'], docs[b'help'], callbacks[b'help'] = \
-                False, boolean, b'help', "Display this help and exit.", self.help
+        keywords['help'], conv['help'], short['h'], docs['help'], callbacks['help'] = \
+                False, boolean, 'help', "Display this help and exit.", self.help
         
         # -V/--version is an option if we are inspecting a class or not using classes at all.
         if top and hasattr(obj, '_cmd_script'):
-            keywords[b'version'], conv[b'version'], short[b'V'], docs[b'version'], callbacks[b'version'] = \
+            keywords['version'], conv['version'], short['V'], docs['version'], callbacks['version'] = \
                     False, boolean, b'version', "Show version and copyright information, then exit.", self.version
         
         return Bunch(
@@ -323,15 +323,16 @@ class Parser(object):
             
             for name in keywords:
                 default = keywords[name]
+                
                 if conv.get(name, None) is boolean:
-                    help[(b"-" + shorts[name] + b", --" + name).decode('ascii')] = docs.get(name, "Toggle this value.\nDefault: %r" % default)
+                    help["-" + shorts[name] + ", --" + name] = docs.get(name, "Toggle this value.\nDefault: %r" % default)
                     continue
                 
                 if conv.get(name, True) is None:
-                    help[(b"-" + shorts[name] + b", --" + name).decode('ascii')] = docs.get(name, "Magic option.")
+                    help["-" + shorts[name] + ", --" + name] = docs.get(name, "Magic option.")
                     continue
                 
-                help[(b"-" + shorts[name] + b", --" + name + b"=VAL").decode('ascii')] = docs.get(name, "Override this value.\nDefault: %r" % default)
+                help["-" + shorts[name] + ", --" + name + "=VAL"] = docs.get(name, "Override this value.\nDefault: %r" % default)
             
             mlen = max([len(i) for i in help])
             
