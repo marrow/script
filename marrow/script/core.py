@@ -41,16 +41,16 @@ class Parser(object):
     
     def __call__(self, argv=None):
         try:
-            print(repr(self.callable))
+            #print(repr(self.callable))
             
             spec = self.spec(self.callable)
-            print(pformat(dict(spec)))
+            #print(pformat(dict(spec)))
             
             argv = self.prepare(argv, spec)
-            print(pformat(argv))
+            #print(pformat(argv))
             
             details = self.process(argv, spec)
-            print(pformat(dict(details)))
+            #print(pformat(dict(details)))
             
             if not spec.cls and ( not details.complete or ( not spec.args and details.remainder ) ):
                 print("Incomplete argument list.")
@@ -79,15 +79,16 @@ class Parser(object):
                 self.help(True, spec)
             
             cmd_spec = self.spec(command, instance)
-            print(pformat(dict(cmd_spec)))
+            cmd_spec.cls = self.callable
+            #print(pformat(dict(cmd_spec)))
             
             argv = self.prepare(details.remainder, cmd_spec)
             
             cmd_details = self.process(argv, cmd_spec)
-            print(pformat(dict(cmd_details)))
+            #print(pformat(dict(cmd_details)))
             
             if not cmd_details.complete:
-                print("Insufficient arguments.")
+                print("Incomplete argument list.")
                 self.help(True, spec)
             
             if cmd_details.remainder:
@@ -219,7 +220,7 @@ class Parser(object):
                 continue
             
             if state is not False and argument[0] == '-':
-                print("longarg:", argument)
+                #print("longarg:", argument)
                 argument = argument[2:]
                 
                 if '=' not in argument:
@@ -228,7 +229,7 @@ class Parser(object):
                     if spec.conv.get(argument, None) is boolean:
                         # if the default is True, save False
                         try:
-                            print("bool:", repr(spec.callbacks.get(argument, lambda a, b: a)), repr(spec.keywords.get(argument, False)))
+                            #print("bool:", repr(spec.callbacks.get(argument, lambda a, b: a)), repr(spec.keywords.get(argument, False)))
                             kwargs[argument] = spec.callbacks.get(argument, lambda a, b: a)(not spec.keywords.get(argument, False), spec)
                         
                         except ExitException:
@@ -269,6 +270,9 @@ class Parser(object):
                 args.append(spec.callbacks.get(name, lambda a, b: a)(spec.conv.get(name, unicode)(argument), spec))
                 continue
             
+            if spec.cls is True:
+                state = False
+            
             remainder.append(argument)
         
         complete = spec.range[0] <= len(args) <= (spec.range[1] if spec.range[1] is not None else 65534)
@@ -288,10 +292,10 @@ class Parser(object):
         
         print('Usage:', os.path.basename(sys.argv[0]), end=' ')
         
-        if not cls and spec.keywords:
+        if spec.keywords and cls is True or cls is None:
             print('[OPTIONS] ', end='')
         
-        elif cls:
+        elif cls is not None and cls is not True:
             print('[OPTIONS] ...', obj.__name__, end=' ')
             if spec.keywords:
                 print('[CMDOPTS] ', end='')
@@ -305,8 +309,8 @@ class Parser(object):
         if spec.args:
             print('[value...] ', end='')
         
-        if inspect.isclass(obj):
-            print('<COMMAND> [CMDOPTS] ...', end='')
+        if cls is True:
+            print('<COMMAND> ...', end='')
         
         keywords = dict(spec.keywords)
         conv = dict(spec.conv)
@@ -314,7 +318,7 @@ class Parser(object):
         shorts = dict([(spec.short[i], i) for i in spec.short])
         
         if keywords:
-            print("\n\n", "CMDOPTS" if cls else "OPTIONS" , " may be one or more of:\n", sep='')
+            print("\n\n", "CMDOPTS" if cls is not None and cls is not True else "OPTIONS" , " may be one or more of:\n", sep='')
             help = dict()
             
             for name in keywords:
@@ -334,7 +338,7 @@ class Parser(object):
             for name in sorted(help):
                 print(" %-*s  %s" % (mlen, name, wrap(help[name]).replace("\n", "\n" + " " * (mlen + 3))))
         
-        if spec.cls:
+        if spec.cls is True:
             print('\nCOMMAND may be one of:\n')
             
             cmds = dict()
