@@ -2,11 +2,11 @@ h1(#title). Marrow Scripting
 
 bq(subtitle). Enabling simplified command line script creation.
 
-bq(byline). (C) 2010, Alice Bevan-McGregor
+bq(byline). (C) 2010-2011, Alice Bevan-McGregor
 
-bq(byline). "https://github.com/pulp/marrow.script":github-marrowscript
+bq(byline). "https://github.com/marrow/marrow.script":github-marrowscript
 
-[github-marrowscript]https://github.com/pulp/marrow.script
+[github-marrowscript]https://github.com/marrow/marrow.script
 
 
 
@@ -38,7 +38,7 @@ Development takes place on "GitHub":github in the "marrow.script":github-marrows
 
 Installing the current development version requires "Git":git, a distributes source code management system.  If you have Git, you can run the following to download and _link_ the development version into your Python runtime:
 
-<pre><code>git clone https://github.com/pulp/marrow.script.git
+<pre><code>git clone https://github.com/marrow/marrow.script.git
 (cd marrow.script; python setup.py develop)</code></pre>
 
 You can upgrade to the latest version at any time:
@@ -174,7 +174,7 @@ fn1. Typecasting is performed by any callable that accepts a string value as inp
 
 fn2. Arguments to these decorators are @name=value@ pairs whereby the name is the name of the argument to your callable.
 
-[marrowutil]https://github.com/pulp/marrow.util
+[marrowutil]https://github.com/marrow/marrow.util
 
 
 h2(#advanced). %5.% Advanced Usage
@@ -210,7 +210,7 @@ Marrow Script has been released under the MIT Open Source license.
 
 h3. %6.1.% The MIT License
 
-Copyright (C) 2010 Alice Bevan-McGregor and contributors.
+Copyright (C) 2010-2011 Alice Bevan-McGregor and contributors.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
