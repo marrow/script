@@ -54,7 +54,7 @@ implementing Python 3 compatibility.
 For full documentation, see the README.textile file present in the package,
 or view it online on the GitHub project page:
 
-https://github.com/pulp/marrow.script""",
+https://github.com/marrow/marrow.script""",
         author = "Alice Bevan-McGregor",
         author_email = "alice+marrow@gothcandy.com",
         url = "https://github.com/marrow/marrow.script",
