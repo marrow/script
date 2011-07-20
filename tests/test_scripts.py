@@ -204,16 +204,3 @@ class TestCore(TestCase):
         
         _ = Parser(kwargs)(['--name=value'])
         self.assertEquals(_, 1)
-    
-    def test_core_callbacks(self):
-        def myhelp(arg, spec):
-            raise ExitException(-1, 0)
-        
-        def myver(arg, spec):
-            raise ExitException(-2, 0)
-        
-        _ = Parser(simple, help=myhelp)(['--help'])
-        self.assertEquals(_, -1)
-        
-        _ = Parser(simple, version=myver)(['--version'])
-        self.assertEquals(_, -2)
