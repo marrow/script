@@ -29,8 +29,8 @@ def base(attr):
     return decorator
 
 
-script = base('_cmd_script')
-annotate = base('_cmd_arg_types')
+script = base('_cmd_script_info')
+annotate = base('_cmd_arg_type')
 describe = base('_cmd_arg_doc')
-short = base('_cmd_shorts')
-callbacks = base('_cmd_callbacks')
+short = base('_cmd_arg_abbrev')
+callbacks = base('_cmd_arg_callback')
