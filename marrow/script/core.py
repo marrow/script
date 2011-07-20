@@ -59,7 +59,6 @@ class Parser(object):
                 
                 args, kwargs, arguments = self.process(spec, arguments)
                 
-                print(args, spec.arguments)
                 if len(args) < len(spec.arguments):
                     raise ExitException(os.EX_USAGE, "Additional positional arguments required.")
                 
