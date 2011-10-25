@@ -85,7 +85,7 @@ class Parser(object):
                 consumed.append(Bunch(spec=spec, obj=obj, args=args, kwargs=kwargs))
                 
                 name = arguments.pop(0)
-                sub = getattr(obj, name)
+                sub = getattr(obj, name, None)
                 
                 if name[0] == '_' or not sub or not hasattr(sub, '__call__'):
                     raise ExitException(os.EX_USAGE, "Invalid command.")
