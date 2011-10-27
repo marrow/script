@@ -11,7 +11,7 @@ from pprint import pformat
 from functools import partial
 
 from marrow.util.bunch import Bunch
-from marrow.util.compat import binary, unicode
+from marrow.util.compat import binary, unicode, exception
 from marrow.util.convert import boolean, array
 from marrow.script.util import getargspec, wrap, partitionhelp
 
@@ -95,7 +95,14 @@ class Parser(object):
                 i += 1
             
             executable = consumed[-1]
-            return executable.obj(*executable.args, **executable.kwargs) or 0
+            
+            try:
+                result = executable.obj(*executable.args, **executable.kwargs)
+            except:
+                e = exception()
+                raise ExitException(os.EX_USAGE, "An error occured executing this script:\n\n" + e.formatted)
+            
+            return result or 0
         
         except ExitException, e:
             code, message = e.args
