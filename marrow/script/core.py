@@ -104,7 +104,7 @@ class Parser(object):
             
             return result or 0
         
-        except ExitException, e:
+        except ExitException as e:
             code, message = e.args
             
             if message:
@@ -120,10 +120,26 @@ class Parser(object):
                 try:
                     help(True)
                 
-                except ExitException, e:
+                except ExitException as e:
                     code, message = e.args
             
             return code
+        
+        except Exception:
+            e = exception()
+            print("An internal error occured executing this script:\n\n" + e.formatted)
+            help = master.callables[-1].callback.get('help')
+            
+            if not help:
+                print("Help not available.")
+                return code
+            
+            try:
+                help(True)
+            
+            except ExitException as e:
+                code, message = e.args
+                return code
     
     @property
     def specification(self):
