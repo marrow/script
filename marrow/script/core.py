@@ -5,15 +5,12 @@ from __future__ import unicode_literals
 
 import os
 import sys
-import inspect
 
-from pprint import pformat
-from functools import partial
+from inspect import getargspec, getdoc, isfunction, ismethod, isclass
 
 from marrow.util.bunch import Bunch
-from marrow.util.compat import binary, unicode, exception
 from marrow.util.convert import boolean, array
-from marrow.script.util import getargspec, wrap, partitionhelp
+from marrow.script.util import wrap, partitionhelp
 
 
 __all__ = ['ExitException', 'ScriptError', 'MalformedArguments', 'Parser']
@@ -39,327 +36,229 @@ class MalformedArguments(ScriptError):
 
 
 class Parser(object):
-    def __init__(self, obj):
-        self.callable = obj
-    
+    def __init__(self, command):
+        self.command = command
+        self.stack = []
+
     def __call__(self, argv=None, *args):
         # Gather together the argument list.
         arguments = ([argv] + list(args)) if args else ((argv if isinstance(argv, list) else [argv]) if argv else [])
-        
-        # Determine initial argument specification.
-        master = self.specification
-        
-        consumed = []
-        
-        i = 0
+
+        def help():
+            try:
+                self.stack[-1].callbacks['help'](True, self.stack[-1])
+            except ExitException:
+                pass
+
+            print("!1!")
+            return os.EX_USAGE
+
+        try:
+            return self.execute(arguments) or 0
+
+        except ExitException as e:
+            return e.args[0]
+
+        except MalformedArguments as e:
+            if not self.stack: raise
+            print("Malformed arguments:", e.args[0])
+            return help()
+
+        except Exception as e:
+            if not self.stack: raise
+            log.exception("Uncaught exception.")
+            return help()
+
+    def execute(self, arguments):
+        parent = None
+        current = self.command
+        self.stack = []
+
+        while True:
+            spec = self.specification(of=current, via=parent)
+            self.stack.append(spec)
+
+            arguments = self.expand(arguments, via=spec)
+            args, kwargs, arguments = self.arguments(arguments, via=spec)
+
+            if (arguments and not spec.cls) or \
+                    (spec.cls and arguments and arguments[0][0] == '-'):
+                raise MalformedArguments("Unknown argument: " + arguments[0])
+
+            if len(args) < spec.range[0]:
+                raise MalformedArguments("Insufficient positional arguments.")
+
+            if not spec.cls:
+                return spec.callable(*args, **kwargs)
+
+            parent = spec.instance = spec.target(*args, **kwargs)
+
+            if not arguments:
+                raise MalformedArguments("Command not specified.")
+
+            current = getattr(spec.instance, arguments.pop(0))
+
+    def specification(self, of, defaults=True, via=None):
+        """Build our internal specification of the target callable.
+
+        Optionally, pre-populate the callbacks for --help/-h and --version/-V.
+        """
+
+        cmd = Bunch(target=of)
+        cmd.doc = partitionhelp(getdoc(cmd.target)) if getdoc(cmd.target) else None
+        cmd.cls = isclass(cmd.target)
+        cmd.fn = isfunction(cmd.target)
+        cmd.method = ismethod(cmd.target)
+        cmd.callable = cmd.target.__init__ if cmd.cls else cmd.target
         
         try:
-            while i < len(master.callables):
-                spec = master.callables[i]
-                
-                args, kwargs, arguments = self.process(spec, arguments)
-                
-                if len(args) < len(spec.arguments):
-                    raise ExitException(os.EX_USAGE, "Additional positional arguments required.")
-                
-                if spec.simple:
-                    # Final callable.
-                    
-                    if arguments:
-                        # Argument overflow; too many argumnets.
-                        raise ExitException(os.EX_USAGE, "Too many arguments: %r" % arguments)
-                    
-                    # We've reached the end.
-                    consumed.append(Bunch(spec=spec, obj=spec.obj, args=args, kwargs=kwargs))
-                    break
-                
-                if not arguments:
-                    # Argument underflow; need sub-command, not specified.
-                    raise ExitException(os.EX_USAGE, "Must specify command to execute.")
-                
-                # Handle sub-commands.
-                # TODO: Handle class instance with __call__.
-                
-                obj = spec.obj(*args, **kwargs)
-                
-                consumed.append(Bunch(spec=spec, obj=obj, args=args, kwargs=kwargs))
-                
-                name = arguments.pop(0)
-                sub = getattr(obj, name, None)
-                
-                if name[0] == '_' or not sub or not hasattr(sub, '__call__'):
-                    raise ExitException(os.EX_USAGE, "Invalid command.")
-                
-                master.callables.append(self.specification_for(sub, master))
-                
-                i += 1
-            
-            executable = consumed[-1]
-            
-            try:
-                result = executable.obj(*executable.args, **executable.kwargs)
-            except:
-                e = exception()
-                raise ExitException(os.EX_USAGE, "An error occured executing this script:\n\n" + e.formatted)
-            
-            return result or 0
+            cmd.spec = getargspec(cmd.callable)
+        except TypeError:
+            # __init__ of built-in class, such as object
+            cmd.spec = Bunch(args=['self'], varargs=None, keywords=None, defaults=None)
         
-        except ExitException as e:
-            code, message = e.args
-            
-            if message:
-                print(message)
-            
-            if code == os.EX_USAGE and message is not None:
-                help = master.callables[-1].callback.get('help')
-                
-                if not help:
-                    print("Help not available.")
-                    return code
-                
-                try:
-                    help(True)
-                
-                except ExitException as e:
-                    code, message = e.args
-            
-            return code
-        
-        except Exception:
-            e = exception()
-            print("An internal error occured executing this script:\n\n" + e.formatted)
-            help = master.callables[-1].callback.get('help')
-            
-            if not help:
-                print("Help not available.")
-                return code
-            
-            try:
-                help(True)
-            
-            except ExitException as e:
-                code, message = e.args
-                return code
-    
-    @property
-    def specification(self):
-        """Determine the high-level script specification.
-        
-        Additionally, prepare the way for sub-command calling.
-        """
-        
-        spec = Bunch(
-                name = None,
-                author = None,
-                version = None,
-                copyright = None,
-                license = None,
-                url = None
-            )
-        
-        # TODO: Load some of this from setuptools.
-        spec.update(getattr(self.callable, '_cmd_script_info', dict()))
-        
-        spec.callables = [
-                self.specification_for(self.callable, spec)
-            ]
-        
-        return spec
-    
-    def specification_for(self, obj, master):
-        # Load up the canonical argument specification.
-        arguments, keywords, args, kwargs = getargspec(obj)
-        docstring, typecast, abbreviation, callback = dict(), dict(), dict(), dict()
-        
-        # Pre-process the argument lists.
-        for name, value in sorted(zip(keywords.keys(), keywords.values())):
-            # Remove keyword arguments from positional list.
-            if name in arguments:
-                arguments.remove(name)
-            
+        cmd.trans = dict((i.replace('_', '-'), i) for i in cmd.spec.args)
+        cmd.positional = cmd.spec.args[:len(cmd.spec.args)-len(cmd.spec.defaults or [])]
+        cmd.named = cmd.spec.args[len(cmd.spec.args)-len(cmd.spec.defaults or []):]
+        cmd.defaults = dict((i, j) for i, j in zip(reversed(cmd.spec.args), reversed(cmd.spec.defaults or [])))
+        cmd.instance = None
+        cmd.indexed = cmd.spec.varargs
+        cmd.keyed = cmd.spec.keywords
+        cmd.docs = dict()
+        cmd.parent = via
+
+        if cmd.cls or cmd.method:
+            cmd.positional = cmd.positional[1:]
+
+        cmd.range = (len(cmd.positional), 65535 if cmd.spec.varargs else len(cmd.positional))
+
+        cast = dict()
+        short = dict()
+        callbacks = dict()
+
+        if defaults:
+            cmd.named.extend(('help', 'version'))
+            callbacks.update(help=self.help, version=self.version)
+            short.update(h='help', V='version')
+            cast.update(help=boolean, version=boolean)
+
+        for name in sorted(cmd.defaults):
             # Determine typecasting information.
-            if isinstance(value, bool): typecast[name] = boolean
-            elif isinstance(value, (list, tuple)): typecast[name] = array
-            elif value is not None: typecast[name] = type(value)
-            
+            if isinstance(cmd.defaults[name], bool): cast[name] = boolean
+            elif isinstance(cmd.defaults[name], (list, tuple)): cast[name] = array
+            elif cmd.defaults[name] is not None: cast[name] = type(cmd.defaults[name])
+
             # Determine abbreviations.
-            for char in name:
-                if char in abbreviation: continue
-                abbreviation[char] = name
+            for char in "".join(i for j in zip(name, name.upper()) for i in j):
+                if char in short: continue
+                short[char] = name
                 break
-            
+
+        cmd.cast = cast
+        cmd.short = short
+        cmd.callbacks = callbacks
+
+        return cmd
+
+    def help(self, value, via):
+        """Display a GNU-ish help page listing arguments and possible sub-commands."""
+        width = self.width()
+
+        # Output the summary information.
+        for i, spec in enumerate(self.stack):
+            summary, description = spec.doc or (None, None)
+
+            if not i:
+                if summary: print(wrap(summary, width))
+                print("Usage:", os.path.basename(sys.argv[0]), end=" ")
+
             else:
-                if name not in getattr(obj, '_cmd_arg_abbrev', dict()):
-                    raise MalformedArguments("Unable to determine unique abbreviation for %s argument to %r." \
-                                             " Specify one using the @abbreviation decorator." % (name, obj))
-        
-        # Flip it around for more logical (and consistent) user assignment.
-        abbreviation = dict(zip(abbreviation.values(), abbreviation.keys()))
-        
-        # Load up decorator-provided details.
-        decorated = obj.__init__ if inspect.isclass(obj) else obj
-        docstring.update(getattr(decorated, '_cmd_arg_doc', dict()))
-        typecast.update(getattr(decorated, '_cmd_arg_type', dict()))
-        abbreviation.update(getattr(decorated, '_cmd_arg_abbrev', dict()))
-        callback.update(getattr(decorated, '_cmd_arg_callback', dict()))
-        minmax = (getattr(decorated, '_min_args', len(arguments)),
-            getattr(decorated, '_max_args', 65534 if args else len(arguments)))
-        
-        # -h/--help is always an option.
-        keywords.setdefault(b'help', False)
-        typecast.setdefault(b'help', boolean)
-        abbreviation.setdefault(b'help', b'h')
-        docstring.setdefault(b'help', b"Display this help and exit.")
-        callback.setdefault(b'help', partial(self.help, master))
-        
-        # Flip it back for easier processing later.
-        abbreviation = dict(zip(abbreviation.values(), abbreviation.keys()))
-        
-        return Bunch(
-                obj = obj,
-                
-                doc = getattr(obj, '__doc__', None) or None,
-                simple = not inspect.isclass(obj),
-                direct = hasattr(obj, '__call__') and not inspect.isclass(obj),
-                
-                arguments = arguments,
-                keywords = keywords,
-                args = args,
-                kwargs = kwargs,
-                
-                docstring = docstring,
-                typecast = typecast,
-                abbreviation = abbreviation,
-                callback = callback,
-                
-                range = minmax
-            )
-    
-    def prepare(self, spec, arguments):
-        """Expand short arguments into long ones and expand equations.
-        
-        This only handles arguments we know of and may be called multiple
-        times to handle subcommands.
-        """
-        
-        newarguments = list()
-        
-        for arg in arguments:
-            # Ensure arguments are unicode.  We handle Python 2 str keywords later.
-            arg = arg.decode(encoding) if isinstance(arg, binary) else arg
-            
-            # Skip (impossible?) empty arguments.
-            if not arg: continue
-            
-            # A double-hyphen argument signals the end of hyphenated arguments.
-            if arg == '--' or '--' in newarguments:
-                newarguments.append(arg)
-                continue
-            
-            if arg[0] == '-':
-                if arg[1] == '-':
-                    n, _, v = arg.partition('=')
-                    
-                    newarguments.append(n)
-                    
-                    # Unpack the argument's value, if one exists.
-                    if v: newarguments.append(v)
-                    
-                    continue
-                
-                # Expand short arguments into long ones.
-                for part in list(arg[1:]):
-                    name = spec.abbreviation.get(part, None)
-                    
-                    # Some arguments might not be able to be processed right now;
-                    # we file this away for potential use by sub-commands.
-                    if not name: newarguments.append('-' + part)
-                    else: newarguments.append('--' + name)
-                
-                continue
-            
-            # Positional arguments just passed through.
-            newarguments.append(arg)
-        
-        return newarguments
-    
-    def process(self, spec, arguments):
-        arguments = self.prepare(spec, arguments)
-        arguments.reverse()
-        
-        remainder = []
-        args = []
-        kwargs = {}
-        
-        parsing = True
-        
-        def value_for(name, value):
-            # TODO: Fallback on help if the following fails.
-            
-            if name is None:
-                return value
-            
-            try:
-                cast = spec.typecast.get(name)
-                value = cast(value) if cast else value
-                
-                callback = spec.callback.get(name)
-                arg = callback(value) if callback else value
-            
-            except ExitException:
-                raise
-            
-            except:
-                
-                log.exception("Error processing typecasting or callback for %s argument." % (name))
-                raise ExitException(os.EX_USAGE, None)
-            
-            return value
-        
-        while arguments:
-            arg = arguments.pop()
-            
-            if arg == '--':
-                # Stop processing keyword arguments.
-                parsing = False
-                continue
-            
-            if not parsing or ( arg[:2] != '--' and len(args) < spec.range[1] ):
-                # Positional argument.
-                args.append(value_for(spec.arguments[len(args)] if len(args) < len(spec.arguments) else None, arg))
-                continue
-            
-            if (arg[0] == '-' and arg[1] != '-') or \
-                    (arg[:2] == '--' and arg[2:] not in spec.keywords and not spec.kwargs) or \
-                    (arg[:2] != '--' and len(args) == spec.range[1]):
-                
-                # Unknown (keyword) argument or too many positional values, exiting early.
-                remainder.append(arg)
-                remainder.extend(reversed(arguments))
-                break
-            
-            # Keyword argument.
-            
-            arg = arg[2:].encode('ascii', 'ignore')
-            
-            if spec.typecast.get(arg, None) is boolean:
-                kwargs[arg] = value_for(arg, not spec.keywords.get(arg, False))
-                continue
-            
-            kwargs[arg] = value_for(arg, arguments.pop())
-        
-        return args, kwargs, remainder
-    
-    def help(self, master, value):
-        width = 79
-        
+                print(spec.callable.__name__, end=" ")
+
+            if spec.named:
+                print("[CMDOPTS]" if i else "[OPTIONS]", end=" ")
+
+            if spec.keyed:
+                print("[--name=value...]", end=" ")
+
+            for arg in spec.positional:
+                print("<", arg, ">", sep="", end=" ")
+
+            if spec.indexed:
+                print("[value...]", end=" ")
+
+            if spec.cls and len(self.stack) == i + 1:
+                print("<COMMAND> ...", end="")
+
+        print()
+
+        # Output the details.
+        for i, spec in enumerate(self.stack):
+            summary, description = spec.doc or (None, None)
+
+            if i:
+                print("\nCommand:", spec.callable.__name__)
+                if summary: print(wrap(summary, width))
+
+            if spec.named:
+                print("\n", "CMDOPTS" if i else "OPTIONS", " may be one or more of:", sep="", end="\n\n")
+
+                strings = dict()
+                abbreviation = dict(zip(spec.short.values(), spec.short.keys()))
+                pretty = dict(zip(spec.trans.values(), spec.trans.keys()))
+
+                for name in spec.named:
+                    default = spec.defaults.get(name)
+
+                    if spec.cast.get(name, None) is boolean:
+                        strings[(("-" + abbreviation[name] + ", ") if name in abbreviation else "") + "--" + pretty.get(name, name)] = \
+                                spec.docs.get(name, "Toggle this value.\nDefault: %r" % default)
+                        continue
+
+                    strings["-" + abbreviation[name] + ", --" + pretty.get(name, name) + "=VAL"] = \
+                            spec.docs.get(name, "Override this value.\nDefault: %r" % default)
+
+                mlen = max([len(i) for i in strings])
+                for name in sorted(strings):
+                    print(" %-*s  %s" % (mlen, name, wrap(strings[name], width).replace("\n", "\n" + " " * (mlen + 3))))
+
+            if spec.cls and len(self.stack) == i + 1:
+                print("\n", "COMMAND may be one of:", sep="", end="\n\n")
+
+                cmds = dict()
+                for cmd in dir(spec.target):
+                    if cmd[0] == '_' or not callable(getattr(spec.target, cmd)): continue
+                    cmds[cmd] = partitionhelp(getdoc(getattr(spec.target, cmd)) or "Undocumented command.")[0]
+
+                mlen = max([len(i) for i in cmds])
+                for name in sorted(cmds):
+                    print(" %-*s  %s" % (mlen, name, wrap(cmds[name], width).replace("\n", "\n" + " " * (mlen + 3))))
+
+                print("\n", wrap("For help on a specific command, call the command and pass --help in CMDOPTS.", width), sep="")
+
+            if description: print("\n", wrap(description, width), sep="")
+
+        print()
+
+        print("!2!")
+        raise ExitException(os.EX_USAGE, None)
+
+    def version(self, value, via):
+        """Attempt to determine the owning package, version, author, and copyright information."""
+        pass
+
+    def width(self, fallback=79):
+        """Return the width of the current terminal, or the fallback value."""
+
+        width = fallback
+
         # Determine current terminal width, if possible.
         if sys.stdout.isatty():
             try:
                 # Use terminal control codes if possible.
                 import fcntl, termios, struct
                 width = struct.unpack(b'hh', fcntl.ioctl(sys.stdout.fileno(), termios.TIOCGWINSZ, '1234'))[1] - 1
-            
+
             except:
                 # Fall back on environment variables.
                 try:
@@ -367,80 +266,136 @@ class Parser(object):
                 except:
                     # TODO: Fall back on curses, then ANSI.
                     pass
+
+        return width
+
+    def expand(self, arguments, via):
+        """Expand short arguments into long ones and expand equations.
+
+        Silently ignores unknown arguments to allow repeated calling for sub-commands.
+
+        `arguments`:
+            a list of arguments
+        `via`:
+            the specification we are expanding from
+
+        You can override this in a subclass to perform additional transformations if you wish.
+        """
+
+        result = []
+
+        for arg in arguments:
+            # Ensure arguments are unicode.
+            # arg = arg.decode(encoding) if isinstance(arg, binary) else arg
+
+            # Skip the impossibility of empty arguments.
+            if not arg: continue
+
+            # A double-hyphen argument signals the end of hyphenated arguments.
+            if arg == '--' or '--' in result:
+                result.append(arg)
+                continue
+
+            # Now we start looking for our hyphenated options.
+            if len(arg) >= 2 and arg[0] == '-':
+                if arg[1] == '-':
+                    # This is a long-form argument.
+                    name, _, value = arg.partition('=')
+
+                    # We append the name, then value if one exists.
+                    result.append(name)
+                    if value: result.append(value)
+
+                    continue
+
+                # Expand short arguments into long ones.
+                for char in arg[1:]:
+                    name = via.short.get(char, None)
+                    if name: result.append('--' + name)
+                    else: result.append('-' + char)
+
+                continue
+
+            # Other values we just pass along.
+            result.append(arg)
+
+        return result
+
+    def arguments(self, arguments, via):
+        """Process the given command-line arguments and return the positional, keyword, and remaining arguments.
+
+        Expects long-form arguments only, thus the output of the self.expand method.
+        """
         
-        # Output the summary information.
-        for current, spec in enumerate(master.callables):
-            summary, description = partitionhelp(spec.doc)
+        log.debug("---")
+
+        remainder = []
+        arguments = arguments[::-1]  # We reverse the argument list as popping is more efficient from the end.
+        parsing = True
+        args = []
+        kwargs = {}
+
+        while arguments:
+            arg = arguments.pop()
+            log.debug("Argument: %s", arg)
+
+            if arg == '--':
+                # Stop processing keyword arguments.
+                parsing = False
+                continue
             
-            if current == 0 and summary: print(wrap(summary, width))
+            log.debug('parsing %s  len(args) %d  via.range[1] %d  len(arg) %d  arg[:2] %s',
+                parsing, len(args), via.range[1], len(arg), arg[:2])
             
-            if current == 0:
-                print("Usage:", os.path.basename(sys.argv[0]), end=" ")
-            
-            else:
-                print(spec.obj.__name__, end=" ")
-            
-            if spec.keywords:
-                print("[OPTIONS]" if current == 0 else "[CMDOPTS]", end=" ")
-            
-            if spec.kwargs:
-                print("[--name=value...]", end=" ")
-            
-            for arg in spec.arguments:
-                print("<", arg, ">", sep="", end=" ")
-            
-            if spec.args:
-                print("[value...]", end=" ")
-            
-            if not spec.simple and len(master.callables) == current + 1:
-                print("<COMMAND> ...", end="")
-        
-        print()
-        
-        # Output the details.
-        for current, spec in enumerate(master.callables):
-            summary, description = partitionhelp(spec.doc)
-            
-            if current != 0:
-                print("\nCommand:", spec.obj.__name__)
-                if summary: print(wrap(summary, width))
-            
-            if spec.keywords:
-                print("\n", "OPTIONS" if current == 0 else "CMDOPTS", " may be one or more of:", sep="", end="\n\n")
-                
-                strings = dict()
-                abbreviation = dict(zip(spec.abbreviation.values(), spec.abbreviation.keys()))
-                
-                for name in spec.keywords:
-                    default = spec.keywords[name]
-                    
-                    if spec.typecast.get(name, None) is boolean:
-                        strings["-" + abbreviation[name] + ", --" + name] = \
-                                spec.docstring.get(name, "Toggle this value.\nDefault: %r" % default)
-                        continue
-                    
-                    strings["-" + abbreviation[name] + ", --" + name + "=VAL"] = \
-                            spec.docstring.get(name, "Override this value.\nDefault: %r" % default)
-                
-                mlen = max([len(i) for i in strings])
-                for name in sorted(strings):
-                    print(" %-*s  %s" % (mlen, name, wrap(strings[name], width).replace("\n", "\n" + " " * (mlen + 3))))
-            
-            if not spec.simple and len(master.callables) == current + 1:
-                print("\n", "COMMAND may be one of:", sep="", end="\n\n")
-                
-                cmds = dict()
-                for cmd in dir(spec.obj):
-                    if cmd[0] == '_' or not callable(getattr(spec.obj, cmd)): continue
-                    cmds[cmd] = partitionhelp(getattr(spec.obj, cmd).__doc__ or "Undocumented command.")[0]
-                
-                mlen = max([len(i) for i in cmds])
-                for name in sorted(cmds):
-                    print(" %-*s  %s" % (mlen, name, wrap(cmds[name], width).replace("\n", "\n" + " " * (mlen + 3))))
-                
-                print("\n", wrap("For help on a specific command, call the command and pass --help in CMDOPTS.", width), sep="")
-            
-            if description: print("\n", wrap(description, width), sep="")
-        
-        print()
-        raise ExitException(os.EX_USAGE, None)
+            if not parsing or ( arg[:2] != '--' and len(args) < via.range[1] ):
+                # Positional argument.
+                log.debug('=')
+                log.debug(parsing)
+                log.debug(via.positional)
+                log.debug(args)
+                args.append(self.transform(
+                        name=via.positional[len(args)] if len(args) < len(via.positional) else None,
+                        value=arg,
+                        via=via
+                    ))
+                continue
+
+            if (arg[0] == '-' and arg[1] != '-') or \
+                    (arg[:2] == '--' and (via.trans.get(arg[2:], arg[2:]) not in via.named and not via.keyed)) or \
+                    (arg[:2] != '--' and len(args) == via.range[1]):
+                # Unknown keyword argument or too many positional arguments, exiting early.
+                log.debug('!')
+                remainder.append(arg)
+                remainder.extend(reversed(arguments))
+                break
+
+            # Keyword argument.
+            log.debug('-- %s', arg)
+            arg = arg[2:]
+            log.debug(arg)
+
+            if via.cast.get(arg, None) is boolean:
+                kwargs[arg] = self.transform(name=arg, value=not via.defaults.get(arg, False), via=via)
+                continue
+
+            kwargs[arg] = self.transform(name=arg, value=arguments.pop(), via=via)
+
+        log.debug("%s\n%s\n%s", args, kwargs, remainder)
+        return args, kwargs, remainder
+
+    def transform(self, name, value, via):
+        """Typecast and optionally utilize callbacks for the given argument."""
+
+        if name is None:
+            log.debug("Noname: %r", value)
+            return value
+
+        cast = via.cast.get(name)
+        log.debug("Casting %s (%r) to %r.", name, value, cast)
+        value = cast(value) if cast else value
+
+        callback = via.callbacks.get(name)
+        if callback:
+            callback(value, via)
+
+        return value

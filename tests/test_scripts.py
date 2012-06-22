@@ -69,6 +69,10 @@ def lists(value=[]):
 def multiply(x, y):
     "A decorated function with two, non-defaulting arguments."
     logging.debug("x=%r y=%r", x, y)
+    
+    x = int(x)  # TODO: Temporary patch until a replacement for @annotate is written and integrated.
+    y = int(y)
+    
     assert isinstance(x, int)
     assert isinstance(y, int)
     
