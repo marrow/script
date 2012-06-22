@@ -327,8 +327,6 @@ class Parser(object):
         Expects long-form arguments only, thus the output of the self.expand method.
         """
         
-        log.debug("---")
-
         remainder = []
         arguments = arguments[::-1]  # We reverse the argument list as popping is more efficient from the end.
         parsing = True
@@ -337,22 +335,14 @@ class Parser(object):
 
         while arguments:
             arg = arguments.pop()
-            log.debug("Argument: %s", arg)
 
             if arg == '--':
                 # Stop processing keyword arguments.
                 parsing = False
                 continue
             
-            log.debug('parsing %s  len(args) %d  via.range[1] %d  len(arg) %d  arg[:2] %s',
-                parsing, len(args), via.range[1], len(arg), arg[:2])
-            
             if not parsing or ( arg[:2] != '--' and len(args) < via.range[1] ):
                 # Positional argument.
-                log.debug('=')
-                log.debug(parsing)
-                log.debug(via.positional)
-                log.debug(args)
                 args.append(self.transform(
                         name=via.positional[len(args)] if len(args) < len(via.positional) else None,
                         value=arg,
@@ -364,15 +354,12 @@ class Parser(object):
                     (arg[:2] == '--' and (via.trans.get(arg[2:], arg[2:]) not in via.named and not via.keyed)) or \
                     (arg[:2] != '--' and len(args) == via.range[1]):
                 # Unknown keyword argument or too many positional arguments, exiting early.
-                log.debug('!')
                 remainder.append(arg)
                 remainder.extend(reversed(arguments))
                 break
 
             # Keyword argument.
-            log.debug('-- %s', arg)
             arg = arg[2:]
-            log.debug(arg)
 
             if via.cast.get(arg, None) is boolean:
                 kwargs[arg] = self.transform(name=arg, value=not via.defaults.get(arg, False), via=via)
@@ -380,18 +367,15 @@ class Parser(object):
 
             kwargs[arg] = self.transform(name=arg, value=arguments.pop(), via=via)
 
-        log.debug("%s\n%s\n%s", args, kwargs, remainder)
         return args, kwargs, remainder
 
     def transform(self, name, value, via):
         """Typecast and optionally utilize callbacks for the given argument."""
 
         if name is None:
-            log.debug("Noname: %r", value)
             return value
 
         cast = via.cast.get(name)
-        log.debug("Casting %s (%r) to %r.", name, value, cast)
         value = cast(value) if cast else value
 
         callback = via.callbacks.get(name)
