@@ -50,7 +50,6 @@ class Parser(object):
             except ExitException:
                 pass
 
-            print("!1!")
             return os.EX_USAGE
 
         try:
@@ -246,8 +245,9 @@ class Parser(object):
     def version(self, value, via):
         """Attempt to determine the owning package, version, author, and copyright information."""
         pass
-
-    def width(self, fallback=79):
+    
+    @staticmethod
+    def width(fallback=79):
         """Return the width of the current terminal, or the fallback value."""
 
         width = fallback
