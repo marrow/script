@@ -239,7 +239,6 @@ class Parser(object):
 
         print()
 
-        print("!2!")
         raise ExitException(os.EX_USAGE, None)
 
     def version(self, value, via):
