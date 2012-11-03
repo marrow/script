@@ -217,7 +217,7 @@ class Parser(object):
                     strings["-" + abbreviation[name] + ", --" + pretty.get(name, name) + "=VAL"] = \
                             spec.docs.get(name, "Override this value.\nDefault: %r" % default)
 
-                mlen = max([len(i) for i in strings])
+                mlen = max([len(j) for j in strings])
                 for name in sorted(strings):
                     print(" %-*s  %s" % (mlen, name, wrap(strings[name], width).replace("\n", "\n" + " " * (mlen + 3))))
 
