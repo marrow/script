@@ -1,11 +1,33 @@
-*.pyc
-*.pyo
+*.py[co]
+
+# Packages
+*.egg
 *.egg-info
-*.DS_Store
-*~
-build/
-dist/
-tests/.coverage
+dist
+build
+eggs
+parts
+bin
+var
+sdist
+develop-eggs
+.installed.cfg
+
+# Installer logs
+pip-log.txt
+
+# Unit test / coverage reports
 .coverage
-third-party
-.testing-deps
+.tox
+
+# Translations
+*.mo
+
+# Mac
+.DS_Store
+.cache/
+.cagoule.db
+htmlcov/
+
+# Extras
+thirdparty/

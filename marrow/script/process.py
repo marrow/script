@@ -12,8 +12,6 @@ from marrow.util.bunch import Bunch
 from marrow.util.convert import boolean, array
 from marrow.script.util import wrap, partitionhelp
 
-from .exc import ExitException, ScriptError, MalformedArguments
-
 
 __all__ = ['ExitException', 'ScriptError', 'MalformedArguments', 'Parser']
 
@@ -25,6 +23,16 @@ encoding = sys.getdefaultencoding() if sys.getdefaultencoding() != 'ascii' else 
 log = __import__('logging').getLogger(__name__)
 
 
+class ExitException(Exception):
+    pass
+
+
+class ScriptError(Exception):
+    pass
+
+
+class MalformedArguments(ScriptError):
+    pass
 
 
 class Parser(object):

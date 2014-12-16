@@ -1,78 +1,95 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
+from __future__ import print_function
+
 import os
 import sys
+import codecs
 
-from setuptools import setup, find_packages
+
+try:
+	from setuptools.core import setup, find_packages
+except ImportError:
+	from setuptools import setup, find_packages
+
+from setuptools.command.test import test as TestCommand
 
 
 if sys.version_info < (2, 6):
-    raise SystemExit("Python 2.6 or later is required.")
+	raise SystemExit("Python 2.6 or later is required.")
+elif sys.version_info > (3, 0) and sys.version_info < (3, 2):
+	raise SystemExit("Python 3.2 or later is required.")
 
 exec(open(os.path.join("marrow", "script", "release.py")).read())
 
 
+class PyTest(TestCommand):
+	def finalize_options(self):
+		TestCommand.finalize_options(self)
+		
+		self.test_args = []
+		self.test_suite = True
+	
+	def run_tests(self):
+		import pytest
+		sys.exit(pytest.main(self.test_args))
+
+
+here = os.path.abspath(os.path.dirname(__file__))
+
+tests_require = ['pytest', 'pytest-cov', 'pytest-flakes', 'pytest-cagoule', 'pytest-spec<=0.2.22']
 
 setup(
-        name = "marrow.script",
-        version = version,
-        
-        description = "Turn any callable into a powerful command line script through arglist introspection.",
-        long_description = """\
-The marrow.script package is a small library for turning average every-day
-callables (such as functions and class methods) into command-line scripts
-while automatically determining argument naming, typecasting, and generating
-things like help and version information.  All behavior can be overridden by
-you, the developer, giving you a flexible and easy to develop with command
-line parsing library to replace ``optparse`` and ``argparse``.  This package
-is not a wrapper around existing parsing libraries, and attempts to match the
-syntax common to GNU software.
-
-In a larger scope marrow.script aims to replace other high-level command-line
-scripting libraries such as Paste Script and commandline while also
-implementing Python 3 compatibility.
-
-For full documentation, see the README.textile file present in the package,
-or view it online on the GitHub project page:
-
-https://github.com/marrow/marrow.script""",
-        
-        author = "Alice Bevan-McGregor",
-        author_email = "alice+marrow@gothcandy.com",
-        url = "https://github.com/marrow/marrow.script",
-        license = "MIT",
-        
-        install_requires = [
-            'marrow.util < 2.0'
-        ],
-        
-        test_suite = 'nose.collector',
-        tests_require = [
-                'nose',
-                'coverage'
-            ],
-        
-        classifiers = [
-                "Development Status :: 4 - Beta",
-                "Environment :: Console",
-                "Intended Audience :: Developers",
-                "License :: OSI Approved :: MIT License",
-                "Operating System :: OS Independent",
-                "Programming Language :: Python",
-                "Programming Language :: Python :: 2.6",
-                "Programming Language :: Python :: 2.7",
-                "Programming Language :: Python :: 3",
-                "Programming Language :: Python :: 3.1",
-                "Programming Language :: Python :: 3.2",
-                "Topic :: Software Development :: Libraries :: Python Modules",
-                "Topic :: Utilities"
-            ],
-        
-        packages = find_packages(exclude=['examples', 'tests']),
-        zip_safe = True,
-        include_package_data = True,
-        package_data = {'': ['README.textile', 'LICENSE']},
-        
-        namespace_packages = ['marrow'],
-    )
+	name = "marrow.script",
+	version = version,
+	
+	description = description,
+	long_description = codecs.open(os.path.join(here, 'README.rst'), 'r', 'utf8').read(),
+	url = url,
+	
+	author = author.name,
+	author_email = author.email,
+	
+	license = 'MIT',
+	keywords = '',
+	classifiers = [
+			"Development Status :: 5 - Production/Stable",
+			"Intended Audience :: Developers",
+			"License :: OSI Approved :: MIT License",
+			"Operating System :: OS Independent",
+			"Programming Language :: Python",
+			"Programming Language :: Python :: 2",
+			"Programming Language :: Python :: 2.6",
+			"Programming Language :: Python :: 2.7",
+			"Programming Language :: Python :: 3",
+			"Programming Language :: Python :: 3.2",
+			"Programming Language :: Python :: 3.3",
+			"Programming Language :: Python :: 3.4",
+			"Programming Language :: Python :: Implementation :: CPython",
+			"Programming Language :: Python :: Implementation :: PyPy",
+			"Topic :: Software Development :: Libraries :: Python Modules",
+			"Topic :: Utilities"
+		],
+	
+	packages = find_packages(exclude=['test', 'script', 'example']),
+	include_package_data = True,
+	namespace_packages = ['marrow'],
+	
+	install_requires = [],
+	
+	extras_require = dict(
+			development = tests_require,
+		),
+	
+	tests_require = tests_require,
+	
+	dependency_links = [
+			'git+https://github.com/illico/pytest-spec.git@feature/py26#egg=pytest-spec-0.2.22'
+		],
+	
+	zip_safe = True,
+	cmdclass = dict(
+			test = PyTest,
+		)
+)
