@@ -3,7 +3,7 @@
 from __future__ import unicode_literals, print_function
 
 from collections import namedtuple
-from inspect import isclass, isfunction, getdoc, getmembers
+from inspect import isclass, isfunction, ismethod, getdoc, getmembers
 from textwrap import dedent
 
 from marrow.schema import Container, DataAttribute, Attribute, CallbackAttribute, Attributes
@@ -12,19 +12,26 @@ from marrow.schema.validate import always, Validated
 from marrow.schema.transform import Transform, array, boolean, integer, decimal, number
 
 from .exc import ExitException, ScriptError, MalformedArguments
-from .util import wrap, partitionhelp
+from .util import wrap, partitionhelp, getargspec
 
 
 context = namedtuple("context", ('attribute', 'container'))
-
-
+nodefault = object()
 
 
 class Argument(Attribute):
+	default = Attribute(default=nodefault)
 	short = Attribute(default=None)
 	description = Attribute(default=None)
 	transform = CallbackAttribute(default=Transform())
 	validator = CallbackAttribute(default=always)
+	
+	def __repr__(self):
+		return "{0.__class__.__name__}({1}{0.__name__}{2})".format(
+				self,
+				(self.short + ':') if self.short else '',
+				', required' if self.default is nodefault else ''
+			)
 	
 	def __set__(self, obj, value):
 		ctx = context(self, obj)
@@ -90,9 +97,41 @@ class Specification(Attribute):
 	_vargs = Attribute(default=False)
 	_kwargs = Attribute(default=False)
 	
+	def apply(self):
+		"""Return a 2-tuple of (args, kw) in preparation for execution using these arguments."""
+		
+		seen = set()
+		positional = []
+		keyword = {}
+		
+		for arg, spec in self.__arguments__.items():
+			if spec.default is nodefault:
+				if arg == self._vargs:
+					continue  # TEST: vargs
+				
+				positional.append(getattr(self, arg))
+				seen.add(arg)
+				continue
+			
+			if arg == self._kwargs:
+				continue  # TEST: kwargs
+			
+			keyword[arg] = getattr(self, arg)
+			seen.add(arg)
+		
+		if self._vargs:  # TEST: vargs
+			positional.extend(getattr(self, self._vargs))
+		
+		if self._kwargs:  # TEST: kwargs
+			# TODO: Identify redefinition and explode.
+			keyword.update(getattr(self, self._kwargs))
+		
+		return tuple(positional), keyword
+	
 	@classmethod
 	def from_object(cls, obj, parent=None):
-		# We construct a new Specification subclass dedicated to this function.
+		"""Construct a new Specification subclass dedicated to this function."""
+		
 		# It's gettin' weird, Jerry.
 		
 		# If we have no hope, bail early.
@@ -104,18 +143,55 @@ class Specification(Attribute):
 			return obj.__script_spec_class__
 		
 		parts = dict()
+		shorts = set()
 		
 		# Inspect and populate a new schema for this callable.
-		args, vargs, kwargs, defaults = getargspec(obj)
+		
+		args, defaults, parts['_vargs'], parts['_kwargs'] = getargspec(obj)
+		annotations = getattr(obj, '__annotations__', {})
+		
+		for arg in args:
+			argument = None
+			arg_cls = Switch if isinstance(defaults.get(arg, None), bool) else Argument
+			parts[arg] = arg_cls(arg)
+			
+			if arg in annotations:  # TEST
+				ann = annotations[arg]
+				
+				if isinstance(ann, Argument):
+					argument = ann
+				
+				elif callable(ann):
+					pass  # TODO: Typecasting
+				
+				else:
+					parts[arg] = ann
+			
+			if arg in defaults:
+				# Default means optional, which means a switch.
+				parts[arg].default = defaults[arg]
+				
+				# Determine acceptable (unique) short code.
+				for c_ in arg:
+					for c in (c_.lower(), c_.upper()):
+						if c in shorts: continue
+						parts[arg].short = c
+						shorts.add(c)
+						break
+					else:
+						continue
+					break
+		
+		if parts['_vargs']:  # TEST: vargs
+			parts[parts['_vargs']] = Argument(parts['_vargs'], default=tuple)
+		
+		if parts['_kwargs']:  # TEST: kwargs
+			parts[parts['_kwargs']] = Argument(parts['_kwargs'], default=dict)
 		
 		# Construct the final class.
 		spec = ElementMeta("Specification_" + obj.__name__, (Specification, ), parts)
 		
 		# Cache if possible.
-		try:
-			obj.__script_spec_class__ = spec
-		except:
-			pass
+		obj.__script_spec_class__ = spec
 		
 		return spec
-	

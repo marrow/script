@@ -88,7 +88,7 @@ def getargspec(obj):
     # if (argnames, varargs, varkw, defaults) is (None, None, None, None):
     #     raise InspectionFailed()
     
-    if argnames and argnames[0] == 'self':
+    if argnames and argnames[0] in ('self'):
         del argnames[0]
     
     if _defaults is None:
@@ -107,7 +107,7 @@ def getargspec(obj):
         argnames.reverse()
         # del argnames[-len(_defaults):]
     
-    return argnames, defaults, True if varargs else False, True if varkw else False
+    return argnames, defaults, varargs or False, varkw or False
 
 
 def partitionhelp(s):
