@@ -16,8 +16,8 @@ except ImportError:
 from setuptools.command.test import test as TestCommand
 
 
-if sys.version_info < (2, 6):
-	raise SystemExit("Python 2.6 or later is required.")
+if sys.version_info < (2, 7):
+	raise SystemExit("Python 2.7 or later is required.")
 elif sys.version_info > (3, 0) and sys.version_info < (3, 2):
 	raise SystemExit("Python 3.2 or later is required.")
 
@@ -38,7 +38,7 @@ class PyTest(TestCommand):
 
 here = os.path.abspath(os.path.dirname(__file__))
 
-tests_require = ['pytest', 'pytest-cov', 'pytest-flakes', 'pytest-cagoule', 'pytest-spec<=0.2.22']
+tests_require = ['pytest', 'pytest-cov', 'pytest-flakes', 'pytest-spec']
 
 setup(
 	name = "marrow.script",
@@ -60,7 +60,6 @@ setup(
 			"Operating System :: OS Independent",
 			"Programming Language :: Python",
 			"Programming Language :: Python :: 2",
-			"Programming Language :: Python :: 2.6",
 			"Programming Language :: Python :: 2.7",
 			"Programming Language :: Python :: 3",
 			"Programming Language :: Python :: 3.2",
@@ -85,7 +84,6 @@ setup(
 	tests_require = tests_require,
 	
 	dependency_links = [
-			'git+https://github.com/illico/pytest-spec.git@feature/py26#egg=pytest-spec-0.2.22'
 		],
 	
 	zip_safe = True,

@@ -1,5 +1,1 @@
-# encoding: utf-8
-try: # pragma: no cover
-    __import__('pkg_resources').declare_namespace(__name__)
-except ImportError: # pragma: no cover
-    __import__('pkgutil').extend_path(__path__, __name__)
+__import__('pkg_resources').declare_namespace(__name__) # pragma: no cover
