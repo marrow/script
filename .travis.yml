@@ -1,17 +1,28 @@
 language: python
+sudo: false
+cache: pip
 
-env:
-  - TOXENV=pypy
-  - TOXENV=pypy3
-  - TOXENV=py26
-  - TOXENV=py27
-  - TOXENV=py32
-  - TOXENV=py33
-  - TOXENV=py34
+branches:
+  except:
+      - /^[^/]+/.+$/
 
-install: travis_retry .travis/install.sh
+python:
+  - "2.7"
+  - "pypy"
+  - "pypy3"
+  - "3.3"
+  - "3.4"
+  - "3.5"
 
-script: .travis/run.sh
+install:
+  - travis_retry pip install --upgrade setuptools pip codecov
+  - pip install -e '.[development]'
+
+script:
+    python setup.py test
+
+after_script:
+    bash <(curl -s https://codecov.io/bash)
 
 notifications:
   irc:
@@ -25,5 +36,3 @@ notifications:
       - "%{repository_slug}:%{branch}@%{commit} %{message}"
       - "Duration: %{duration} - Details: %{build_url}"
 
-after_success:
-  - coveralls
