@@ -78,10 +78,12 @@ setup(
 	setup_requires = [
 			'pytest-runner',
 		] if {'pytest', 'test', 'ptr'}.intersection(sys.argv) else [],
-	install_requires = [],
+	install_requires = [
+			'funcsigs; python_version < "3.3"',  # Omni-port of PEP 362 (from Python 3.3's inspect module).
+			'pathlib2; python_version < "3.4"',  # Path manipulation utility lib; builtin in 3.4 and 3.5.
+		],
 	tests_require = tests_require,
 	extras_require = {
-			'development': tests_require,  # Development requirements are the testing requirements.
+			'development': tests_require + ['pre-commit'],  # Development requirements are the testing requirements.
 		},
 )
-
