@@ -34,6 +34,10 @@ def validation(
 			foo: "A mysterious parameter." = None,
 			url: (url, "A URL") = None
 		):
+	"""Validation example.
+	
+	Performs validation using custom callbacks and inline checks.
+	"""
 	
 	if foo is not None and foo != 'wat':
 		raise ValueError("If a value is provided it must be the value 'wat'.")
