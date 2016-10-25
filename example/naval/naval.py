@@ -5,7 +5,6 @@ from __future__ import unicode_literals, print_function
 from marrow.script import Script
 
 
-
 class NavalFate(object):
 	"""Naval Fate
 	
