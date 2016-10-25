@@ -38,17 +38,18 @@ setup(
 	description = description,
 	long_description = codecs.open(os.path.join(here, 'README.rst'), 'r', 'utf8').read(),
 	url = url,
-	download_url = 'https://github.com/marrow/cinje/releases',
+	download_url = 'https://github.com/marrow/marrow.script/releases',
 	author = author.name,
 	author_email = author.email,
 	license = 'MIT',
-	keywords = ['template', 'source translation', 'dsl', 'streaming', 'chunked'],
+	keywords = ['marrow', 'cli', 'command line', 'scripting'],
 	classifiers = [
 			"Development Status :: 5 - Production/Stable",
 			"Environment :: Console",
 			"Intended Audience :: Developers",
 			"License :: OSI Approved :: MIT License",
 			"Operating System :: OS Independent",
+			"Programming Language :: Python",
 			"Programming Language :: Python :: 2",
 			"Programming Language :: Python :: 2.7",
 			"Programming Language :: Python :: 3",
@@ -58,9 +59,10 @@ setup(
 			"Programming Language :: Python :: 3.5",
 			"Programming Language :: Python :: Implementation :: CPython",
 			"Programming Language :: Python :: Implementation :: PyPy",
-			"Programming Language :: Python",
-			"Topic :: Software Development :: Libraries :: Python Modules",
+			"Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+			"Topic :: Internet :: WWW/HTTP :: WSGI",
 			"Topic :: Software Development :: Libraries",
+			"Topic :: Software Development :: Libraries :: Python Modules",
 			"Topic :: Utilities",
 		],
 	
@@ -68,7 +70,7 @@ setup(
 	include_package_data = True,
 	package_data = {'': ['README.rst', 'LICENSE.txt']},
 	namespace_packages = [
-			'marrow',
+			'marrow',  # primary namespace
 		],
 	zip_safe = True,
 	
@@ -79,11 +81,14 @@ setup(
 			'pytest-runner',
 		] if {'pytest', 'test', 'ptr'}.intersection(sys.argv) else [],
 	install_requires = [
+			'marrow.schema<2.0',  # dynamic execution and plugin management
 			'funcsigs; python_version < "3.3"',  # Omni-port of PEP 362 (from Python 3.3's inspect module).
 			'pathlib2; python_version < "3.4"',  # Path manipulation utility lib; builtin in 3.4 and 3.5.
 		],
 	tests_require = tests_require,
 	extras_require = {
-			'development': tests_require + ['pre-commit'],  # Development requirements are the testing requirements.
+			'development': tests_require + [  # An extended set of useful development tools.
+					'pre-commit',  # Git hook provider.
+				],
 		},
 )
