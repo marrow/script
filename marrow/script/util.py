@@ -1,15 +1,8 @@
-# encoding: utf-8
-
-from __future__ import unicode_literals
-
 import sys
 import types
 import inspect
 
 from textwrap import wrap as wrap_
-
-
-__all__ = ['wrap', 'InspectionComplete', 'InspectionFailed', 'getargspec', 'partitionhelp']
 
 
 # Mac OS X terminal lies, so do others, probably.
@@ -47,14 +40,6 @@ def wrap(text, columns=78):
 				lines.append(oline)
 	
 	return "\n".join(lines)
-
-
-class InspectionComplete(Exception):
-	pass
-
-
-class InspectionFailed(Exception):
-	pass
 
 
 def partitionhelp(s):

@@ -1,15 +1,18 @@
-# encoding: utf-8
-
-from __future__ import unicode_literals
-
-
 class ExitException(Exception):
-    pass
+	pass
 
 
 class ScriptError(Exception):
-    pass
+	pass
 
 
 class MalformedArguments(ScriptError):
-    pass
+	pass
+
+
+class InspectionComplete(Exception):
+	pass
+
+
+class InspectionFailed(Exception):
+	pass

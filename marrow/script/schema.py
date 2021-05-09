@@ -1,14 +1,10 @@
-# encoding: utf-8
-
-from __future__ import unicode_literals, print_function
-
 from collections import namedtuple
 from inspect import isclass, isfunction, ismethod, getdoc
 
-from marrow.schema import Attribute, CallbackAttribute, Attributes
-from marrow.schema.meta import ElementMeta
-from marrow.schema.validate import always
-from marrow.schema.transform import Transform, IngressTransform
+from ..schema import Attribute, CallbackAttribute, Attributes
+from ..schema.meta import ElementMeta
+from ..schema.validate import always
+from ..schema.transform import Transform, IngressTransform
 
 from .compat import signature, Parameter
 

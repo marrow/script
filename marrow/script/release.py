@@ -1,5 +1,3 @@
-# encoding: utf-8
-
 """Release information."""
 
 from collections import namedtuple
@@ -12,4 +10,3 @@ author = namedtuple('Author', ['name', 'email'])("Alice Bevan-McGregor", 'alice@
 
 description = "Turn any callable into a powerful command line script through arglist introspection."
 url = 'https://github.com/marrow/script/'
-
